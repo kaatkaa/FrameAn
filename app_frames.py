@@ -5,7 +5,7 @@
 
 
 # data
-cch_twi = r"C:\Users\User\Downloads\NP_frames\NP-frames-up.xlsx"
+cch_twi = r"NP-frames-up.xlsx"
 
 
 colors = {
