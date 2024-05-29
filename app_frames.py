@@ -5,7 +5,7 @@
 
 
 # data
-cch_twi = r"NP-frames-up.xlsx"
+cch_twi = r"NP-frames-up-ethos.xlsx"
 
 
 colors = {
@@ -1086,8 +1086,10 @@ with st.sidebar:
             corpora_list_components[ cor1['corpus'].iloc[0] ] = cor1
 
 
-            cor11 = load_data(cch_twi, sheet = True, sheet_name = 'full', indx=False)
+            #cor11 = load_data(cch_twi, sheet = True, sheet_name = 'full', indx=False)
+            cor11 = load_data(cch_twi, sheet = True, sheet_name = 'ethos', indx=False)
             cor1 = cor11.copy()
+            cor['ethos'] = cor.ethos_label.map( {0:'neutral', 1:'support', 2:'attack'} )
             cor1['corpus'] = "Climate Change Twitter"
             corpora_list.append(cor1)
 
