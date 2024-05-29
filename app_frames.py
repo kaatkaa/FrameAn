@@ -9,8 +9,8 @@ cch_twi = r"NP-frames-up-ethos.xlsx"
 
 
 colors = {
-'negative':'darkred', 'positive':'green', 'neutral':'lightblue', 'NA':'grey',
-'attack':'darkred', 'support':'green', 'neutral agents':'blue',
+'negative':'#F90400', 'positive':'#107C18', 'neutral':'#076BE2', 'NA':'grey',
+'attack':'#F90400', 'support':'#107C18', 'neutral agents':'blue',
 'joy' : '#8DF903', 'anger' : '#FD7E00', 'sadness' : '#0798C3', 'fear' : '#000000', 'disgust' :'#840079', 'surprise' : '#E1CA01',
 }
 
