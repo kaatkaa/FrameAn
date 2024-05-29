@@ -417,17 +417,17 @@ def distribution_plot_compare(data_list):
                 sns.move_legend(plot2, loc='upper right', bbox_to_anchor = (0.8- (len(contents_radio_categories_multiselect) / 30 ), 1.1 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique())
                 plt.tight_layout(w_pad=7.5)
 
-                st.write(" Figure: **proportion feature**")
+                st.write(" Figure: **proportion**")
                 plt.show()
                 st.pyplot( plot2)
                 #st.write(df_cause)
                 add_spacelines(2)
 
-
-            st.write(" Figure: **proportion overall**")
-            plt.show()
-            st.pyplot( plot)
-            df_cause = df_cause.rename(columns = {'proportion':'proportion overall'} )
+            else:
+                st.write(" Figure: **proportion**")
+                plt.show()
+                st.pyplot( plot)
+                df_cause = df_cause.rename(columns = {'proportion':'proportion overall'} )
 
 
 
