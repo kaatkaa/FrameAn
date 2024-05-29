@@ -454,12 +454,11 @@ def distribution_plot_compare(data_list):
 
             #st.write(df)
             dff_columns = [
-                        'discussion', 'map', 'sentence', 'CausationText', 'CausationEffect',
+                        'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
-                       'ethos',  'Target', 'sentiment', 'emotion',
                          ]
             dff = df[dff_columns].copy()
             select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2])
@@ -545,13 +544,11 @@ def distribution_plot_compare(data_list):
 
             df = data_list[-1]
             dff_columns = [
-                        'discussion', 'map', 'sentence', 'CausationText', 'CausationEffect',
+                        'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
-                       'ethos',  'Target', 'sentiment',
-                       'emotion',
                          ]
             df = df.fillna("NA")
             df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
@@ -790,14 +787,12 @@ def Target_compare_freq(data_list):
         #st.write(dd2)
         df = data_list[-1]
         dff_columns = [
-                    'discussion', 'map', 'sentence','CausationText', 'CausationEffect',
-                   'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                   'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
-                   'Causation begin', 'Causation end', 'CauseText', 'EffectText',
-                   'AgentText', 'CircumstancesText',
-                   'ethos',  'Target', 'sentiment',
-                   'emotion',
-                     ]
+                        'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
+                       'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
+                       'Causation begin', 'Causation end', 'CauseText', 'EffectText',
+                       'AgentText', 'CircumstancesText',
+                         ]
         df = df.fillna("NA")
         df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
 
@@ -1007,14 +1002,12 @@ def Target_compare_scor(data_list):
         #st.write(dd2)
         df = data_list[-1]
         dff_columns = [
-                    'discussion', 'map','sentence', 'CausationText', 'CausationEffect',
-                   'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                   'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
-                   'Causation begin', 'Causation end', 'CauseText', 'EffectText',
-                   'AgentText', 'CircumstancesText',
-                   'ethos',  'Target', 'sentiment',
-                   'emotion',
-                     ]
+                        'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
+                       'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
+                       'Causation begin', 'Causation end', 'CauseText', 'EffectText',
+                       'AgentText', 'CircumstancesText',
+                         ]
         df = df.fillna("NA")
         df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
 
