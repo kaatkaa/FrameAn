@@ -454,16 +454,15 @@ def distribution_plot_compare(data_list):
 
             #st.write(df)
             dff_columns = [
-                        'discussion', 'map', 'CausationText', 'CausationEffect',
+                        'discussion', 'map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
                        'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
-                       'ethos',  'Target', 'sentiment',
-                       'emotion',
+                       'ethos',  'Target', 'sentiment', 'emotion',
                          ]
             dff = df[dff_columns].copy()
-            select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-1])
+            select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2])
             cols_columns = st.columns(len(select_columns))
             dict_cond = {}
             for n, c in enumerate(cols_columns):
@@ -546,7 +545,7 @@ def distribution_plot_compare(data_list):
 
             df = data_list[-1]
             dff_columns = [
-                        'discussion', 'map', 'CausationText', 'CausationEffect',
+                        'discussion', 'map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
                        'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
@@ -559,7 +558,7 @@ def distribution_plot_compare(data_list):
 
             dff = df[dff_columns].copy()
             dff = dff.fillna('NA')
-            select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[1:2])
+            select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2])
             cols_columns = st.columns(len(select_columns))
             dict_cond = {}
             for n, c in enumerate(cols_columns):
@@ -791,7 +790,7 @@ def Target_compare_freq(data_list):
         #st.write(dd2)
         df = data_list[-1]
         dff_columns = [
-                    'discussion', 'map', 'CausationText', 'CausationEffect',
+                    'discussion', 'map', 'sentence','CausationText', 'CausationEffect',
                    'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
                    'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                    'Causation begin', 'Causation end', 'CauseText', 'EffectText',
@@ -804,7 +803,7 @@ def Target_compare_freq(data_list):
 
         dff = df[dff_columns].copy()
         dff = dff.fillna('NA')
-        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[1:2])
+        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2])
         cols_columns = st.columns(len(select_columns))
         dict_cond = {}
         for n, c in enumerate(cols_columns):
@@ -1008,7 +1007,7 @@ def Target_compare_scor(data_list):
         #st.write(dd2)
         df = data_list[-1]
         dff_columns = [
-                    'discussion', 'map', 'CausationText', 'CausationEffect',
+                    'discussion', 'map','sentence', 'CausationText', 'CausationEffect',
                    'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
                    'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                    'Causation begin', 'Causation end', 'CauseText', 'EffectText',
@@ -1021,7 +1020,7 @@ def Target_compare_scor(data_list):
 
         dff = df[dff_columns].copy()
         dff = dff.fillna('NA')
-        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[1:2])
+        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2])
         cols_columns = st.columns(len(select_columns))
         dict_cond = {}
         for n, c in enumerate(cols_columns):
