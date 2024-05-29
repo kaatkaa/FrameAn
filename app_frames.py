@@ -459,7 +459,7 @@ def distribution_plot_compare(data_list):
                        'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
-                       'ethos',  'sentiment',
+                       'ethos',  'Target', 'sentiment',
                        'emotion',
                          ]
             dff = df[dff_columns].copy()
@@ -551,7 +551,7 @@ def distribution_plot_compare(data_list):
                        'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
-                       'ethos',  'sentiment',
+                       'ethos',  'Target', 'sentiment',
                        'emotion',
                          ]
             df = df.fillna("NA")
@@ -796,7 +796,7 @@ def Target_compare_freq(data_list):
                    'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                    'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                    'AgentText', 'CircumstancesText',
-                   'ethos',  'sentiment',
+                   'ethos',  'Target', 'sentiment',
                    'emotion',
                      ]
         df = df.fillna("NA")
@@ -1013,7 +1013,7 @@ def Target_compare_scor(data_list):
                    'AgentNumerosity', 'CauseLength', 'speaker', 'turn',
                    'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                    'AgentText', 'CircumstancesText',
-                   'ethos',  'sentiment',
+                   'ethos',  'Target', 'sentiment',
                    'emotion',
                      ]
         df = df.fillna("NA")
