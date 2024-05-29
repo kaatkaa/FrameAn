@@ -398,7 +398,7 @@ def distribution_plot_compare(data_list):
             for axis in plot.axes.flat:
                 axis.tick_params(labelleft=True)
             sns.move_legend(plot, loc='upper right', bbox_to_anchor = (0.8 - (len(contents_radio_categories_multiselect) / 30 ), 1.1 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique() )
-            plt.tight_layout(w_pad=7.5)
+            plt.tight_layout(w_pad=5)
             add_spacelines(2)
 
 
@@ -415,7 +415,7 @@ def distribution_plot_compare(data_list):
                 for axis in plot2.axes.flat:
                     axis.tick_params(labelleft=True)
                 sns.move_legend(plot2, loc='upper right', bbox_to_anchor = (0.8- (len(contents_radio_categories_multiselect) / 30 ), 1.1 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique())
-                plt.tight_layout(w_pad=7.5)
+                plt.tight_layout(w_pad=5)
 
                 st.write(" Figure: **proportion**")
                 plt.show()
