@@ -591,6 +591,8 @@ def Target_compare_freq(data_list):
     #df = df[df['Component'] == 'Agent' ]
     df = df[ ~(df.AgentText.isna()) ]
     df['Target'] = df['AgentText']
+    df['Agent'] = df.apply( lambda x: 1 if x['AgentText'] in x['Target'] else 0)
+    df = df[ df['Agent'] == 1]
 
     df1 = df['Target'].value_counts(normalize = True).round(3) * 100
     df1 = df1.reset_index()
@@ -834,6 +836,8 @@ def Target_compare_scor(data_list):
     #df = df[df['Component'] == 'Agent' ]
     df = df[ ~(df.AgentText.isna()) ]
     df['Target'] = df['AgentText']
+    df['Agent'] = df.apply( lambda x: 1 if x['AgentText'] in x['Target'] else 0)
+    df = df[ df['Agent'] == 1]
     df1 = df['Target'].value_counts(normalize = True).round(3) * 100
     #st.write(df1)
     df1 = df1.reset_index()
