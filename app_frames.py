@@ -590,22 +590,20 @@ def Target_compare_freq(data_list):
     ds = df['corpus'].iloc[0]
     #df = df[df['Component'] == 'Agent' ]
     df = df[ ~(df.AgentText.isna()) ]
-    df['Target'] = df['AgentText']
-    df['Agent'] = np.where(df.AgentText.isin(df.Target.fillna('')), 1, 0)
-    df = df[ df['Agent'] == 1]
-
-    df1 = df['Target'].value_counts(normalize = True).round(3) * 100
+    df1 = df['AgentText'].value_counts(normalize = True).round(3) * 100
     df1 = df1.reset_index()
 
     if contents_radio_categories_val_units == 'number':
-        df1 = df['Target'].value_counts(normalize = False )
+        df1 = df['AgentText'].value_counts(normalize = False )
         df1 = df1.reset_index()
         df1 = df1.rename( columns = {'count': 'proportion'} )
 
     #st.write(df1)
-
-    df1 = df1.rename(columns = {'Target':'Agent'})
-
+    df1 = df1.rename(columns = {'AgentText':'Agent'})
+    df['Agent'] = np.where( (df.AgentText.str.lower().isin(df.Target.fillna('NONE').str.lower())) | (df.Target.fillna('NONE').str.lower().isin(df.AgentText.str.lower())), 1, 0)
+    #st.write(df)
+    df = df[ df['Agent'] == 1]
+    df['Target'] = df['AgentText']
 
     df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
     #st.write(df2)
@@ -756,9 +754,9 @@ def Target_compare_freq(data_list):
         st.write( "##### Frequency " )
         st.pyplot(dist_agents)
         add_spacelines(3)
-        st.write( "##### Distribution of categories of Agents' ethotic profiles" )
-        st.pyplot(f_dist_ethos)
-        add_spacelines(3)
+        #st.write( "##### Distribution of categories of Agents' ethotic profiles" )
+        #st.pyplot(f_dist_ethos)
+        #add_spacelines(3)
         #st.write( "##### Distribution of numbers of appeals to Agents" )
         #st.pyplot(f_dist_ethoshist)
 
@@ -769,15 +767,15 @@ def Target_compare_freq(data_list):
         st.write( " Frequency " )
         st.write(df1.rename( columns = {'proportion': 'frequency'} ) )
         add_spacelines(2)
-        st.write( " Distribution of categories of Agents' ethotic profiles" )
-        st.write(df_dist_ethos_all)
-        add_spacelines(2)
-        st.write('Detailed summary')
-        dd2 = dd2.rename(columns = {'appeals':'frequency', 'Target':'Agent'})
-        dd2 = dd2.sort_values( by = ['score'] )
-        dd2 = dd2.reset_index(drop=True)
-        dd2.index += 1
-        st.write(dd2)
+        #st.write( " Distribution of categories of Agents' ethotic profiles" )
+        #st.write(df_dist_ethos_all)
+        #add_spacelines(2)
+        #st.write('Detailed summary')
+        #dd2 = dd2.rename(columns = {'appeals':'frequency', 'Target':'Agent'})
+        #dd2 = dd2.sort_values( by = ['score'] )
+        #dd2 = dd2.reset_index(drop=True)
+        #dd2.index += 1
+        #st.write(dd2)
 
 
     with heroes_tab_explore:
@@ -835,16 +833,18 @@ def Target_compare_scor(data_list):
     ds = df['corpus'].iloc[0]
     #df = df[df['Component'] == 'Agent' ]
     df = df[ ~(df.AgentText.isna()) ]
-    df['Target'] = df['AgentText']
-    df['Agent'] = np.where(df.AgentText.isin(df.Target.fillna('')), 1, 0)
-    df = df[ df['Agent'] == 1]
-    df1 = df['Target'].value_counts(normalize = True).round(3) * 100
+    #df['Target'] = df['AgentText']
+    df1 = df['AgentText'].value_counts(normalize = True).round(3) * 100
     #st.write(df1)
     df1 = df1.reset_index()
 
+    df1 = df1.rename(columns = {'AgentText':'Agent'})
+    df['Agent'] = np.where( (df.AgentText.str.lower().isin(df.Target.fillna('NONE').str.lower())) | (df.Target.fillna('NONE').str.lower().isin(df.AgentText.str.lower())), 1, 0)
+    #st.write(df)
+    df = df[ df['Agent'] == 1]
+    df['Target'] = df['AgentText']
 
     df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
-    #st.write(df2)
 
     dd_hero = df2[df2.ethos == 'support']
     dd_antihero = df2[df2.ethos == 'attack']
