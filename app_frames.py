@@ -958,10 +958,9 @@ def Target_compare_scor(data_list):
                     palette = {'villains':'#EF0303', 'heroes':'#3DF94E', 'neutral agents':'blue'},
                     x = 'category')
 
-
-
     df_dist_hist_all = dd2[['Target', 'category', 'score']].melt( ['Target', 'category'], value_vars='score' )#.drop('variable')
     #st.write(df_dist_hist_all)
+    f_dist_ethoshist.set( ylim = (0, 1.1), yticks = np.arange(0, 1.1, 0.2) ) 
     df_dist_hist_all1 = df_dist_hist_all.copy()
     df_dist_hist_all1['value'] = np.where( df_dist_hist_all1['value'] == 0, 0.01, df_dist_hist_all1['value'] )
 
