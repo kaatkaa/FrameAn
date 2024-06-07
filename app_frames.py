@@ -1,7 +1,7 @@
 #####################
 #####################
 
-# python -m streamlit run C:\Users\User\Downloads\NP_frames\app_frames.py
+# python -m streamlit run app.py
 
 
 # data
@@ -9,8 +9,10 @@ cch_twi = r"NP-frames-up-ethos.xlsx"
 
 
 colors = {
-'negative':'#F90400', 'positive':'#107C18', 'neutral':'#076BE2', 'NA':'grey',
-'attack':'#F90400', 'support':'#107C18', 'neutral agents':'blue',
+'negative':'#B91305', 'positive':'#1AE510', 'neutral':'#4F60B8', 'NA':'grey',
+'attack':'#B91305', 'support':'#1AE510', 'neutral agents':'#4F60B8',
+'villains':'#B91305', 'heroes':'#1AE510','neutral agent':'#4F60B8',
+'villain':'#B91305', 'hero':'#1AE510',
 'joy' : '#8DF903', 'anger' : '#FD7E00', 'sadness' : '#0798C3', 'fear' : '#000000', 'disgust' :'#840079', 'surprise' : '#E1CA01',
 }
 
@@ -83,8 +85,19 @@ def convert_to_csv(df):
     return df.to_csv(index=False, sep = '\t').encode('utf-8')
 
 
-def prepare_cloud_lexeme_data(data_neutral, data_support, data_attack):
+def colorred(s):
+    if s.ethos == 'attack':
+        return ['background-color: #F11200'] * len(s)
 
+    elif s.ethos == 'support':
+        return ['background-color: #08EF08'] * len(s)
+    else:
+        return ['background-color: #6EDCF2'] * len(s)
+
+
+
+
+def prepare_cloud_lexeme_data(data_neutral, data_support, data_attack):
   # neutral df
   neu_text = " ".join(data_neutral['sentence_lemmatized'].apply(lambda x: " ".join(t for t in set(x.split()))).to_numpy())
   count_dict_df_neu_text = Counter(neu_text.split(" "))
@@ -272,7 +285,7 @@ def distribution_plot_compare(data_list):
         contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
 
     with c_contents1:
-        contents_radio_categories = st.selectbox("Choose categories to display", ("frames components", "frames & ethos", "frames & sentiment", "frames & emotion" )) # horizontal=True,
+        contents_radio_categories = st.selectbox("Choose layers for analysis", ("frames components", "frames & ethos", "frames & sentiment", "frames & emotion" )) # horizontal=True,
 
     #st.write(df.columns)
 
@@ -282,21 +295,20 @@ def distribution_plot_compare(data_list):
     colsText = [c for c in df.columns if 'Text' in c]
     cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
     cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'CauseLength']
+    df[cols_frames_components+['AgentNumerosity', 'CauseLength']] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']].fillna("NA").astype('str')
+    df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
 
 
     if 'sentiment' in contents_radio_categories or 'ethos' in contents_radio_categories or 'emotion' in contents_radio_categories:
         contents_radio_categories = contents_radio_categories.split("&")[-1].strip()
 
-
-        add_spacelines(1)
-        contents_radio_categories_multiselect = st.multiselect(f"Select **frames components** for multi-level analysis of **{contents_radio_categories}** ", cols2, cols2[:3] )
-        contents_radio_categories_multiselect_grouping = st.selectbox("Choose the grouping feature", contents_radio_categories_multiselect )
+        add_spacelines(2)
+        contents_radio_categories_multiselect = st.multiselect(f"Select frames components for **multi-level analysis** of **frames & {contents_radio_categories}** ", cols2, cols2[:3] )
+        df[ contents_radio_categories_multiselect ] = df[ contents_radio_categories_multiselect ].astype('str')
+        contents_radio_categories_multiselect_grouping = st.selectbox("Choose the grouping component", contents_radio_categories_multiselect, 1 )
 
         #data_list[1]
-        df[cols_frames_components+['AgentNumerosity', 'CauseLength']] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']].fillna("NA")
-        df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
-
-        add_spacelines(1)
+        add_spacelines(2)
         df = df[df.Component == 'Causation']
         st.write()
         df_cause = df.groupby( contents_radio_categories_multiselect + [contents_radio_categories ], as_index=False ).size()
@@ -304,8 +316,6 @@ def distribution_plot_compare(data_list):
         df_cause['proportion'] = df_cause[ 'size' ] / notna
         df_cause['proportion'] = df_cause['proportion'].round(3) * 100
         #st.write(df_cause)
-        df_cause2 = df.groupby( contents_radio_categories_multiselect )[ contents_radio_categories ].value_counts(normalize=True).round(3) * 100
-        #st.write(df_cause2)
 
         for col in cols_frames_components[1:]+['AgentNumerosity', 'CauseLength']:
 
@@ -330,31 +340,55 @@ def distribution_plot_compare(data_list):
             distributions_dict[ col ] = df_dist[['Feature', 'Component', 'proportion', contents_radio_categories]]
 
 
-        plot_tab, table_tab, case_tab = st.tabs( ['Plots', 'Tables', 'Cases'] )
-
+        pie_tab, plot_tab, table_tab, case_tab = st.tabs( ['Pie-chart', 'Bar-chart',  'Tables', 'Cases'] )
 
         dist_all = pd.concat( distributions_dict.values(), axis=0, ignore_index=True )
         dist_all = dist_all.melt(['Feature', 'Component', contents_radio_categories ], value_vars =  'proportion')
         dist_all = dist_all.drop(columns = ['variable'])
 
+        if contents_radio_categories == 'emotion':
+            h1 = 10
+        else:
+            h1 = 8.5
+        if contents_radio_categories_val_units == "number":
+            x1 = dist_all['value'].max() + 11
+            x2 = 10
+        else:
+            x1 = 101
+            x2 = 20
+
+
+        with pie_tab:
+            #st.write(dist_all)
+            sns.set(font_scale=1, style='whitegrid')
+            #fig_pie, ax = plt.subplots(3, 2, figsize=(11, 10))
+            #ax = ax.flatten()
+            comps = dist_all.Feature.unique()
+            for com in comps:
+                st.write( f' **{com}** ' )
+                compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
+                fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
+
+                for n, comsub in enumerate(compsubs):
+                    ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
+                    ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
+                            pctdistance=0.75, labeldistance = 1.1,
+                            labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['ethos'].values, #hatch = ['x','',  '-'],
+                            startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':14, },
+                            colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['ethos'].values )
+                             ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+                plt.tight_layout(pad=2)
+                st.pyplot(fig_pie)
+                add_spacelines(2)
+
+
 
         with plot_tab:
-
             sns.set(style = 'whitegrid', font_scale=2.5)
-            if contents_radio_categories == 'emotion':
-                h1 = 10
-            else:
-                h1 = 8.5
-            if contents_radio_categories_val_units == "number":
-                x1 = dist_all['value'].max() + 11
-                x2 = 10
-            else:
-                x1 = 101
-                x2 = 20
-
 
             plot1 = sns.catplot( data = dist_all, kind = 'bar', y = 'Component', x = 'value', col = 'Feature', col_wrap = 2,
                     aspect = 1.15, height=h1, sharey=False, sharex=False, hue = contents_radio_categories, palette = colors)
+
             plot1.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
                     ylabel='', xlabel=contents_radio_categories_val_units,
                     )
@@ -367,9 +401,28 @@ def distribution_plot_compare(data_list):
             plt.show()
             st.pyplot( plot1 )
             #st.write(dist_all)
-            add_spacelines(1)
+            add_spacelines(3)
+
 
             # fig 2
+
+            st.write( f" ##### Multi-level analysis of frames & {contents_radio_categories} " )
+            contents_radio_categories_multiselect.append( contents_radio_categories )
+            cols_columns = st.columns(len(contents_radio_categories_multiselect))
+            dict_cond = {}
+            for n, c in enumerate(cols_columns):
+                with c:
+                    df = df[ df[ contents_radio_categories_multiselect[n]] != 'nan' ]
+                    cond_col = st.multiselect(f"Select categories for *{contents_radio_categories_multiselect[n]}*",
+                                           (df[contents_radio_categories_multiselect[n]].unique()), (df[contents_radio_categories_multiselect[n]].unique()))
+                    dict_cond[contents_radio_categories_multiselect[n]] = cond_col
+
+            for i, k in enumerate(dict_cond.keys()):
+                df = df[ df[str(k)].isin(dict_cond[k]) ]
+
+            contents_radio_categories_multiselect.remove( contents_radio_categories )
+            df_cause2 = df.groupby( contents_radio_categories_multiselect )[ contents_radio_categories ].value_counts(normalize=True).round(3) * 100
+            #st.write(df_cause2)
             sns.set(style = 'whitegrid', font_scale=2.1)
             df_cause2 = df_cause2.reset_index()
             #st.write(df_cause2)
@@ -381,28 +434,31 @@ def distribution_plot_compare(data_list):
             if not contents_radio_categories_multiselect_grouping == 'AgentNumerosity' or contents_radio_categories_multiselect_grouping == 'CauseLength':
                 df_cause = df_cause[df_cause[contents_radio_categories_multiselect_grouping] != 'NA']
             df_cause['grouping'] = contents_radio_categories_multiselect_grouping
-            df_cause['Feature'] = df_cause[ list( set(contents_radio_categories_multiselect).difference([contents_radio_categories_multiselect_grouping]) ) ].apply( lambda x: ' '.join(x.values.astype('str')), axis=1)
+            colswgrouping = list( set(contents_radio_categories_multiselect).difference([contents_radio_categories_multiselect_grouping]) )
+            df_cause['Feature'] = df_cause[ colswgrouping ].apply( lambda x: ' - '.join(x.values.astype('str')), axis=1)
             #st.write(df_cause)
+            colswgrouping = " - ".join(colswgrouping)
+
             if contents_radio_categories_val_units == "number":
-                x1 = df_cause['proportion'].max() + 3
+                x1 = df_cause['size'].max() + 11
                 x2 = 10
             else:
                 x1 = 101
                 x2 = 20
-            plot = sns.catplot( data = df_cause, kind = 'bar', y = 'Feature', x = 'proportion',
+            plot = sns.catplot( data = df_cause, kind = 'bar', y = 'Feature', x = 'size',
                     col = contents_radio_categories_multiselect_grouping, col_wrap = 2,
                     aspect = 1.15, sharex=False, height=h1, hue = contents_radio_categories, palette = colors)
             plot.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
-                    ylabel='', xlabel=contents_radio_categories_val_units,
+                    ylabel = colswgrouping+ "\n", xlabel=contents_radio_categories_val_units,
                     )
             for axis in plot.axes.flat:
                 axis.tick_params(labelleft=True)
-            sns.move_legend(plot, loc='upper right', bbox_to_anchor = (0.8 - (len(contents_radio_categories_multiselect) / 30 ), 1.1 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique() )
-            plt.tight_layout(w_pad=5)
+            sns.move_legend(plot, loc='upper right', bbox_to_anchor = (0.8 - (len(contents_radio_categories_multiselect) / 30 ), 1.2 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique() )
+            plt.tight_layout(w_pad=3)
             add_spacelines(2)
 
 
-            st.write( f" ##### Multi-level analysis of frames components & {contents_radio_categories} " )
+
             # fig 3
             if contents_radio_categories_val_units != "number":
                 sns.set(style = 'whitegrid', font_scale=2.2)
@@ -411,20 +467,20 @@ def distribution_plot_compare(data_list):
                 plot2 = sns.catplot( data = df_cause, kind = 'bar', y = 'Feature', x = 'proportion feature', col = contents_radio_categories_multiselect_grouping, col_wrap = 2,
                         aspect = 1.15, height=h1, sharex=False, hue = contents_radio_categories, palette = colors)
                 plot2.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
-                        ylabel='', xlabel=contents_radio_categories_val_units  )
+                        ylabel = colswgrouping+ "\n", xlabel=contents_radio_categories_val_units  )
                 for axis in plot2.axes.flat:
                     axis.tick_params(labelleft=True)
-                sns.move_legend(plot2, loc='upper right', bbox_to_anchor = (0.8- (len(contents_radio_categories_multiselect) / 30 ), 1.1 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique())
-                plt.tight_layout(w_pad=5)
+                sns.move_legend(plot2, loc='upper right', bbox_to_anchor = (0.8- (len(contents_radio_categories_multiselect) / 30 ), 1.2 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique())
+                plt.tight_layout(w_pad=3)
 
-                st.write(" Figure: **proportion**")
+                #st.write(" Figure: **proportion**")
                 plt.show()
                 st.pyplot( plot2)
                 #st.write(df_cause)
                 add_spacelines(2)
 
             else:
-                st.write(" Figure: **proportion**")
+                #st.write(" Figure: **proportion**")
                 plt.show()
                 st.pyplot( plot)
                 df_cause = df_cause.rename(columns = {'proportion':'proportion overall'} )
@@ -434,10 +490,12 @@ def distribution_plot_compare(data_list):
 
         with table_tab:
             st.write(" **Single-level analysis** ")
-            st.write(dist_all)
-            add_spacelines(2)
+            #st.write(dist_all)
+            for ff in dist_all.Feature.unique():
+                st.write( dist_all[dist_all.Feature == ff].sort_values(by = 'value', ascending=False).reset_index(drop=True) )
+            add_spacelines(1)
 
-            st.write( f" **Multi-level analysis of frames components & {contents_radio_categories}** " )
+            st.write( f" **Multi-level analysis of frames & {contents_radio_categories}** " )
             df_cause = df_cause.rename( columns = { 'size':'number' } )
             if contents_radio_categories_val_units == "number":
 
@@ -456,7 +514,7 @@ def distribution_plot_compare(data_list):
             dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -473,7 +531,7 @@ def distribution_plot_compare(data_list):
             for i, k in enumerate(dict_cond.keys()):
                 dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
             add_spacelines(2)
-            st.dataframe(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1), width = None)
+            st.dataframe(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1).style.apply( colorred, axis=1 ))
             st.write(f"No. of cases: {len(dff_selected)}.")
 
 
@@ -487,11 +545,9 @@ def distribution_plot_compare(data_list):
             )
 
     else:
-        #st.write( data_list[1] )
-        #st.write( data_list[0] )
         df = data_list[0]
+        pie_tab, plot_tab, table_tab, case_tab = st.tabs( ['Pie-chart', 'Bar-chart', 'Tables', 'Cases'] )
 
-        plot_tab, table_tab, case_tab = st.tabs( ['Plots', 'Tables', 'Cases'] )
 
         for col in cols_frames_components:
             if contents_radio_categories_val_units == "number":
@@ -517,6 +573,24 @@ def distribution_plot_compare(data_list):
         dist_all = dist_all.melt(['Feature', 'Component'], value_vars =  'proportion')
         dist_all = dist_all.drop(columns = ['variable'])
         #st.write(dist_all)
+
+        with pie_tab:
+            sns.set(style = 'whitegrid', font_scale=0.9)
+            fig_pie, ax= plt.subplots(5, 1, figsize=(25, 20))
+            comps = dist_all.Feature.unique()
+
+            for n, comp in enumerate(comps):
+                ax[n].pie( dist_all[dist_all.Feature == comp]['value'].round(1).values, pctdistance=0.7, labeldistance=1.07,
+                        labels = dist_all[dist_all.Feature == comp]['Component'].values, #hatch = ['x','',  '-'],
+                        startangle = -10,  autopct='%.0f%%', colors = ['#4F60B8'],
+                         textprops={'color':'black', 'size':9 } # hatch = ['/','']  textprops={'color':'black', 'size':5 }
+                        )
+                ax[n].set_title(comp)
+
+            st.pyplot(fig_pie)
+
+
+
         with plot_tab:
             sns.set(style = 'whitegrid', font_scale=1.6)
             if contents_radio_categories_val_units == "number":
@@ -535,7 +609,13 @@ def distribution_plot_compare(data_list):
 
         with table_tab:
             add_spacelines(1)
-            st.dataframe(dist_all)
+            #st.dataframe(dist_all)
+            for comp in comps:
+                st.dataframe(dist_all[dist_all.Feature == comp].reset_index(drop=True))
+                add_spacelines(1)
+
+
+
 
         with case_tab:
             colsText = [c for c in df.columns if 'Text' in c]
@@ -546,7 +626,7 @@ def distribution_plot_compare(data_list):
             dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -567,7 +647,7 @@ def distribution_plot_compare(data_list):
             for i, k in enumerate(dict_cond.keys()):
                 dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
             add_spacelines(2)
-            st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True), width = None)
+            st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True).style.apply( colorred, axis=1 ))
             st.write(f"No. of cases: {len(dff_selected)}.")
 
             csv_cc_desc2 = convert_to_csv(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
@@ -604,6 +684,7 @@ def Target_compare_freq(data_list):
     #st.write(df)
     df = df[ df['Agent'] == 1]
     df['Target'] = df['AgentText']
+
 
     df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
     #st.write(df2)
@@ -747,18 +828,31 @@ def Target_compare_freq(data_list):
     sns.set(font_scale=1, style='whitegrid')
 
 
-    heroes_tab1, heroes_tab2, heroes_tab_explore = st.tabs(['Bar-chart', 'Tables',  'Cases'])
+    heroes_pie, heroes_tab1, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Tables',  'Cases'])
 
     with heroes_tab1:
         add_spacelines(1)
         st.write( "##### Frequency " )
         st.pyplot(dist_agents)
-        add_spacelines(3)
+        #add_spacelines(3)
         #st.write( "##### Distribution of categories of Agents' ethotic profiles" )
         #st.pyplot(f_dist_ethos)
         #add_spacelines(3)
         #st.write( "##### Distribution of numbers of appeals to Agents" )
         #st.pyplot(f_dist_ethoshist)
+
+
+    with heroes_pie:
+        sns.set(style = 'whitegrid', font_scale=1)
+        fig_pie, ax= plt.subplots(1, 1, figsize=(10, 8))
+        #ax[5].axis("off")
+
+        ax.pie( df1['proportion'].round(1).values, pctdistance=0.7, labeldistance=1.07,
+                    labels = df1['Agent'].values, #hatch = ['x','',  '-'],
+                    startangle = 30,  autopct='%.0f%%', textprops={'color':'black', 'size':13 }, colors = ['#4F60B8'] # hatch = ['/','']
+                    )
+        ax.set_title( dist_agents_xlabel.capitalize() )
+        st.pyplot(fig_pie)
 
 
 
@@ -771,10 +865,10 @@ def Target_compare_freq(data_list):
         #st.write(df_dist_ethos_all)
         #add_spacelines(2)
         #st.write('Detailed summary')
-        #dd2 = dd2.rename(columns = {'appeals':'frequency', 'Target':'Agent'})
-        #dd2 = dd2.sort_values( by = ['score'] )
-        #dd2 = dd2.reset_index(drop=True)
-        #dd2.index += 1
+        dd2 = dd2.rename(columns = {'appeals':'frequency', 'Target':'Agent'})
+        dd2 = dd2.sort_values( by = ['score'] )
+        dd2 = dd2.reset_index(drop=True)
+        dd2.index += 1
         #st.write(dd2)
 
 
@@ -789,7 +883,7 @@ def Target_compare_freq(data_list):
         dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -810,7 +904,7 @@ def Target_compare_freq(data_list):
         for i, k in enumerate(dict_cond.keys()):
             dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
         add_spacelines(2)
-        st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True), width = None)
+        st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True).style.apply( colorred, axis=1 ))
         st.write(f"No. of cases: {len(dff_selected)}.")
 
         csv_cc_desc2 = convert_to_csv(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
@@ -845,7 +939,7 @@ def Target_compare_scor(data_list):
     df['Target'] = df['AgentText']
 
     df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
-
+    #st.write(df2)
     dd_hero = df2[df2.ethos == 'support']
     dd_antihero = df2[df2.ethos == 'attack']
     #st.write(dd_antihero)
@@ -949,33 +1043,60 @@ def Target_compare_scor(data_list):
     df_dist_ethos_all = df_dist_ethos_all['category'].value_counts(normalize=True).round(3) * 100
     df_dist_ethos_all = pd.DataFrame(df_dist_ethos_all).reset_index()
 
-
-
     #st.write(df_dist_hist_all)
-    sns.set(font_scale=1, style='whitegrid')
-    f_dist_ethoshist = sns.catplot(kind='strip', data = df_dist_hist_all, height=4, aspect=1.15,
-                    y = 'score', hue = 'category', dodge=False, s=35, alpha=0.8, legend=False,
+    sns.set(font_scale=1.2, style='whitegrid')
+    plt.figure( figsize = (7,5) )
+    f_dist_ethoshist = sns.catplot(kind='strip', data = df_dist_hist_all, height=4, aspect=1.35,
+                    y = 'score', hue = 'category', dodge=False, s=60, alpha=0.8, legend=False,
                     palette = {'villains':'#EF0303', 'heroes':'#3DF94E', 'neutral agents':'blue'},
                     x = 'category')
+    f_dist_ethoshist.set( ylim = (0,1.1), yticks = np.arange(0, 1.1, 0.2) )
 
     df_dist_hist_all = dd2[['Target', 'category', 'score']].melt( ['Target', 'category'], value_vars='score' )#.drop('variable')
     #st.write(df_dist_hist_all)
-    f_dist_ethoshist.set( ylim = (0, 1.1), yticks = np.arange(0, 1.1, 0.2) ) 
     df_dist_hist_all1 = df_dist_hist_all.copy()
     df_dist_hist_all1['value'] = np.where( df_dist_hist_all1['value'] == 0, 0.01, df_dist_hist_all1['value'] )
 
-    sns.set(font_scale=1, style='whitegrid')
+    sns.set(font_scale=1.2, style='whitegrid')
     height_n = 5 # int(df_dist_hist_all.Target.nunique() / 2.5 )
     f_dist_ethoshist_barh = sns.catplot(kind='bar',
-                    data = df_dist_hist_all1.sort_values(by = 'value'), height=height_n, aspect=1.3,
+                    data = df_dist_hist_all1.sort_values(by = 'value'), height=height_n, aspect=1.6,
                     x = 'value', y = 'Target', hue = 'category', dodge=False,# legend=False,
                     palette = {'villains':'#EF0303', 'heroes':'#3DF94E','neutral agents':'blue'  },
                     )
-    f_dist_ethoshist_barh.set(ylabel = '', xticks = np.arange(0, 1.1, 0.2) )
+    f_dist_ethoshist_barh.set(ylabel = '', xticks = np.arange(0, 1.1, 0.2), xlabel = 'score' )
+    plt.axvline( x = 0.5, label = 'threshold', color = 'k', lw = 1.8, ls = '--', alpha = 0.8 )
 
 
+    heroes_pie, heroes_tab1, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Tables',  'Cases'])
 
-    heroes_tab1, heroes_tab2, heroes_tab_explore = st.tabs(['Bar-chart', 'Tables',  'Cases'])
+    with heroes_pie:
+        sns.set(font_scale=1.2, style='whitegrid')
+        if df_dist_hist_all1['category'].nunique() == 1:
+            fig_pie, ax = plt.subplots( df_dist_hist_all1['category'].nunique(), 1, figsize=(10, 8))
+            cats = df_dist_hist_all1['category'].unique()
+
+            for n, cat in enumerate(cats):
+                ax.pie( df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value')['value'].round(1).values,
+                        pctdistance=0.8, labeldistance = 1.05,
+                        labels = df_dist_hist_all1[ df_dist_hist_all1.category == cat ]['Target'].values, #hatch = ['x','',  '-'],
+                        startangle = 0,  autopct='%.0f%%', textprops={'color':'black', 'size':16 },
+                        colors = ['#EF0303'] ) # sns.mpl_palette("Reds",  df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value').value.nunique()  )
+                ax.set_title( cat.capitalize() )
+
+
+        else:
+            fig_pie, ax = plt.subplots( df_dist_hist_all1['category'].nunique(), 1, figsize=(10, 8))
+            cats = df_dist_hist_all1['category'].unique()
+
+            for n, cat in enumerate(cats):
+                ax[n].pie( df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value')['value'].round(1).values, pctdistance=0.85, labeldistance = 1.03,
+                        labels = df_dist_hist_all1[ df_dist_hist_all1.category == cat ]['Target'].values, #hatch = ['x','',  '-'],
+                        startangle = 0,  autopct='%.0f%%', textprops={'color':'black', 'size':16 }) # hatch = ['/','']
+                ax[n].set_title( cat.capitalize() )
+
+        st.pyplot(fig_pie)
+
 
     with heroes_tab1:
         add_spacelines(1)
@@ -1007,7 +1128,7 @@ def Target_compare_scor(data_list):
         dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker', 
+                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -1028,7 +1149,7 @@ def Target_compare_scor(data_list):
         for i, k in enumerate(dict_cond.keys()):
             dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
         add_spacelines(2)
-        st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True), width = None)
+        st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True).style.apply( colorred, axis=1 ) )
         st.write(f"No. of cases: {len(dff_selected)}.")
 
         csv_cc_desc2 = convert_to_csv(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
@@ -1095,12 +1216,17 @@ with st.sidebar:
         contents_radio_an_cat = st.radio("Unit picker", ('Text-based', 'Entity-based'), label_visibility='collapsed')
         if contents_radio_an_cat == 'Entity-based':
             #contents_radio_an_cat_unit = st.radio("Next choose", ['Target-Based Analysis'] )
+            contents_radio_an_cat_unit = st.radio("Next choose", [ 'Agent', 'Target' ])
+            #st.write(" ******************************* ")
             st.write(" ******************************* ")
             st.write("#### Statistical module")
-            contents_radio3 = st.radio("Statistic", [ 'Agent Frequency', "Agent Score"], label_visibility='collapsed') # '(Anti)-heroes',
-            #contents_radio3 = st.radio("Statistic", [ 'Heroes & villainses', "Profiles"]) # '(Anti)-heroes',
+            if contents_radio_an_cat_unit == 'Agent':
+                contents_radio3 = st.radio("Statistic", ('Frequency', ), label_visibility='collapsed') # '(Anti)-heroes',
+            elif contents_radio_an_cat_unit == 'Target':
+                contents_radio3 = st.radio("Statistic", ('Ethotic Profiles', ), label_visibility='collapsed') # '(Anti)-heroes',
+
         else:
-            #contents_radio_an_cat_unit = st.radio("Next choose", [ 'Sentence' ])
+            contents_radio_an_cat_unit = st.radio("Next choose", [ 'Sentence' ])
             st.write(" ******************************* ")
             st.write("#### Statistical module")
             contents_radio3 = st.radio("Statistic", ('Distribution', ), label_visibility='collapsed') # , 'Odds ratio', 'Cases'
@@ -1124,8 +1250,8 @@ else:
     if contents_radio_type == 'Single Corpus Analysis' and contents_radio3 == 'Distribution':
         distribution_plot_compare( data_list = corpora_list )
 
-    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio3 == 'Agent Frequency':
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Agent' and contents_radio3 == 'Frequency':
         Target_compare_freq( data_list = corpora_list )
 
-    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio3 == 'Agent Score':
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Target' and contents_radio3 == 'Ethotic Profiles':
         Target_compare_scor( data_list = corpora_list )
