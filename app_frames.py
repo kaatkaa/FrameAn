@@ -1115,10 +1115,10 @@ def Target_compare_scor(data_list):
         add_spacelines(1)
         st.write('Detailed summary')
         dd2['frequency attacks'] = np.where( dd2['category'] == 'villains', dd2['number'], 0  )
-        dd2['frequency attacks'] = np.where( dd2['category'] == 'heroes', dd2['frequency'] - dd2['number'], dd2['frequency attacks'] )
+        dd2['frequency attacks'] = np.where( dd2['category'] == 'heroes', dd2['appeals'] - dd2['number'], dd2['frequency attacks'] )
 
         dd2['frequency supports'] = np.where( dd2['category'] == 'heroes', dd2['number'], 0  )
-        dd2['frequency supports'] = np.where( dd2['category'] == 'villains', dd2['frequency'] - dd2['number'], dd2['frequency supports'] )        
+        dd2['frequency supports'] = np.where( dd2['category'] == 'villains', dd2['appeals'] - dd2['number'], dd2['frequency supports'] )        
 
         dd2 = dd2.drop( columns = ['number', 'corpus'] )
         dd2 = dd2.rename(columns = {'appeals':'frequency'})
