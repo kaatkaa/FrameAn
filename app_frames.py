@@ -410,7 +410,6 @@ def distribution_plot_compare(data_list):
 
 
             # fig 2
-
             st.write( f" ##### Multi-level analysis of frames & {contents_radio_categories} " )
             contents_radio_categories_multiselect.append( contents_radio_categories )
             cols_columns = st.columns(len(contents_radio_categories_multiselect))
@@ -1104,8 +1103,8 @@ def Target_compare_scor(data_list):
 
 
     with heroes_tab1:
-        add_spacelines(1)
-        st.pyplot(f_dist_ethoshist)
+        #add_spacelines(1)
+        #st.pyplot(f_dist_ethoshist)
         add_spacelines(1)
         st.write( "##### Distribution of villain scores" )
         st.pyplot(f_dist_ethoshist_barh)
