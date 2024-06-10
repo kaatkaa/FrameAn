@@ -369,7 +369,7 @@ def distribution_plot_compare(data_list):
                 compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
                 #fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
                 if len(compsubs) > 3 and len(compsubs) % 2 == 0:
-                    fig_pie, ax = plt.subplots(len(compsubs) / 2, 2, figsize=(11, 10))
+                    fig_pie, ax = plt.subplots(int( len(compsubs) / 2 ), 2, figsize=(11, 10))
                     ax = ax.flatten()
                 else:
                     fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
