@@ -410,7 +410,7 @@ def distribution_plot_compare(data_list):
             for com in comps:
                 st.write( f' **{com}** ' )
                 compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
-                if len(compsubs) % 2 == 0:
+                if len(compsubs) % 2 == 0 and len(compsubs) > 3:
                   sns.set(font_scale=0.7, style='whitegrid')
                 else:
                   sns.set(font_scale=1, style='whitegrid')
