@@ -415,8 +415,8 @@ def distribution_plot_compare(data_list):
                 else:
                   sns.set(font_scale=1, style='whitegrid')
 
-                if len(compsubs) % 2 == 0:
-                    fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(7, 6))
+                if len(compsubs) % 2 == 0 and len(compsubs) > 3:
+                    fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(9, 7))
                     
                     ax = ax.flatten()
                     for n, comsub in enumerate(compsubs):
@@ -428,7 +428,7 @@ def distribution_plot_compare(data_list):
                                 colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
                                      ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
 
-                    plt.tight_layout(pad=3)
+                    plt.tight_layout(pad=2)
                     st.pyplot(fig_pie)
                     add_spacelines(2)
 
