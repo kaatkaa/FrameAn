@@ -53,10 +53,53 @@ import nltk
 from nltk.text import Text
 
 
+from scipy import stats
+import scipy.stats as ss
+
+
 
 #####################
 #####################
 # functions
+
+
+def StatBarTest(em1, ne1, em2, ne2):
+  table = np.array([[em1, ne1], [em2, ne2]])
+  # em1: category 1 condition 1
+  # ne1: category 1 condition 2
+  # em2: category 2 condition 1
+  # ne2: category 2 condition 2
+
+  res1 = stats.fisher_exact(table, alternative='two-sided')
+  #print('Fisher test: ', res1.statistic.round(3), res1.pvalue.round(3))
+  #print(res1, '\n', )
+
+  res2 = stats.chi2_contingency(table)
+  #print('chi2: ', res2.statistic.round(3), res2.pvalue.round(3))
+  #print(res2)
+  return res2
+
+
+
+def cramers_corrected_stat(df_col1, df_col2):
+    """ calculate Cramers V statistic for categorial-categorial association.
+        uses correction from Bergsma and Wicher,
+        Journal of the Korean Statistical Society 42 (2013): 323-328
+    """
+    confusion_matrix = pd.crosstab( df_col1, df_col2)
+    chi2 = ss.chi2_contingency(confusion_matrix)#[0]
+    pval = chi2.pvalue
+    chi2 = chi2[0]
+    n = confusion_matrix.sum().sum()
+    phi2 = chi2/n
+    r,k = confusion_matrix.shape
+    #st.write(chi2, r, k)
+    #st.write( confusion_matrix.sum().sum() )
+    phi2corr = max(0, phi2 - ((k-1)*(r-1))/(n-1))
+    rcorr = r - ((r-1)**2)/(n-1)
+    kcorr = k - ((k-1)**2)/(n-1)
+    return np.sqrt(phi2corr / min( (kcorr-1), (rcorr-1))), pval
+
 
 def make_word_cloud(comment_words, width = 1100, height = 650, colour = "black", colormap = "brg", stops = True):
     stopwords = set(STOPWORDS)
@@ -310,7 +353,6 @@ def distribution_plot_compare(data_list):
         #data_list[1]
         add_spacelines(2)
         df = df[df.Component == 'Causation']
-        st.write()
         df_cause = df.groupby( contents_radio_categories_multiselect + [contents_radio_categories ], as_index=False ).size()
         notna = df[df.Component == 'Causation'].shape[0]
         df_cause['proportion'] = df_cause[ 'size' ] / notna
@@ -340,7 +382,7 @@ def distribution_plot_compare(data_list):
             distributions_dict[ col ] = df_dist[['Feature', 'Component', 'proportion', contents_radio_categories]]
 
 
-        pie_tab, plot_tab, table_tab, case_tab = st.tabs( ['Pie-chart', 'Bar-chart',  'Tables', 'Cases'] )
+        pie_tab, plot_tab, table_tab, corr_tab, case_tab = st.tabs( ['Pie-chart', 'Bar-chart',  'Tables', 'Correlation', 'Cases'] )
 
         dist_all = pd.concat( distributions_dict.values(), axis=0, ignore_index=True )
         dist_all = dist_all.melt(['Feature', 'Component', contents_radio_categories ], value_vars =  'proportion')
@@ -364,27 +406,46 @@ def distribution_plot_compare(data_list):
             #fig_pie, ax = plt.subplots(3, 2, figsize=(11, 10))
             #ax = ax.flatten()
             comps = dist_all.Feature.unique()
+            if len(comps) % 2 == 0:
+                fig_pie, ax = plt.subplots( int(len(comps)/2), 2, figsize=(7, 6))
+                sns.set(font_scale=1, style='whitegrid')
+                ax = ax.flatten()
             for com in comps:
                 st.write( f' **{com}** ' )
                 compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
-                #fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
-                if len(compsubs) > 3 and len(compsubs) % 2 == 0:
-                    fig_pie, ax = plt.subplots(int( len(compsubs) / 2 ), 2, figsize=(11, 10))
+
+                if len(compsubs) % 2 == 0:
+                    fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(7, 6))
+                    sns.set(font_scale=1, style='whitegrid')
                     ax = ax.flatten()
+                    for n, comsub in enumerate(compsubs):
+                        ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
+                        ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
+                                pctdistance=0.75, labeldistance = 1.1,
+                                labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                                startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':14, },
+                                colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
+                                     ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+                    plt.tight_layout(pad=2)
+                    st.pyplot(fig_pie)
+                    add_spacelines(2)
+
                 else:
                     fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
+                    sns.set(font_scale=1, style='whitegrid')
+                    for n, comsub in enumerate(compsubs):
+                        ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
+                        ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
+                                pctdistance=0.75, labeldistance = 1.1,
+                                labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                                startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':14, },
+                                colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
+                                 ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
 
-                for n, comsub in enumerate(compsubs):
-                    ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
-                    ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
-                            pctdistance=0.75, labeldistance = 1.1,
-                            labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['ethos'].values, #hatch = ['x','',  '-'],
-                            startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':14, },
-                            colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['ethos'].values )
-                             ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
-                plt.tight_layout(pad=2)
-                st.pyplot(fig_pie)
-                add_spacelines(2)
+                    plt.tight_layout(pad=2)
+                    st.pyplot(fig_pie)
+                    add_spacelines(2)
 
 
 
@@ -410,6 +471,7 @@ def distribution_plot_compare(data_list):
 
 
             # fig 2
+
             st.write( f" ##### Multi-level analysis of frames & {contents_radio_categories} " )
             contents_radio_categories_multiselect.append( contents_radio_categories )
             cols_columns = st.columns(len(contents_radio_categories_multiselect))
@@ -495,7 +557,8 @@ def distribution_plot_compare(data_list):
         with table_tab:
             st.write(" **Single-level analysis** ")
             #st.write(dist_all)
-            for ff in dist_all.Feature.unique():
+            components_feature = dist_all.Feature.unique()
+            for ff in components_feature:
                 st.write( dist_all[dist_all.Feature == ff].sort_values(by = 'value', ascending=False).reset_index(drop=True) )
             add_spacelines(1)
 
@@ -507,6 +570,69 @@ def distribution_plot_compare(data_list):
             else:
                 st.write(df_cause.iloc[:, :-2])
 
+
+        with corr_tab:
+            add_spacelines(1)
+            corr_multiselect = st.multiselect("Choose component for the correlation analysis", components_feature, components_feature[0])
+            if len(corr_multiselect) > 1:
+                corr_multiselect_feat = " & ".join(corr_multiselect)
+                df[corr_multiselect_feat] = df[corr_multiselect].agg(' - '.join, axis=1)
+                corr_multiselect = corr_multiselect_feat
+            else:
+                corr_multiselect = corr_multiselect[0]
+            #st.write(df)
+
+            confusion_matrix = pd.crosstab( df[corr_multiselect].values, df[contents_radio_categories].values)
+            add_spacelines(2)
+
+            f1 = []
+            f2 = []
+            mt_corrs = []
+
+            from sklearn.metrics import matthews_corrcoef
+            for c1 in df[corr_multiselect].unique():
+                for c2 in df[contents_radio_categories].unique():
+                    df_cor2 = df.copy()
+                    df_cor2[corr_multiselect] = df_cor2[corr_multiselect].map( {c1:1} ).fillna(0)
+                    df_cor2[contents_radio_categories] = df_cor2[contents_radio_categories].map( {c2:1} ).fillna(0)
+                    mt_corr = matthews_corrcoef( df_cor2[corr_multiselect].values, df_cor2[contents_radio_categories].values )
+                    f1.append(c1)
+                    f2.append(c2)
+                    mt_corrs.append( round(mt_corr, 3) )
+                    #st.write(c1, c2, mt_corr)
+
+            #st.write(matthews_corrcoef( df[corr_multiselect].values, df['ethos'].values))
+            matrix_corr = pd.DataFrame( {corr_multiselect:f1 , contents_radio_categories.capitalize():f2, 'correlation':mt_corrs} )
+
+            cv, pval = cramers_corrected_stat( df[corr_multiselect].values, df[contents_radio_categories].values )
+
+
+            corr_col1, corr_col2 = st.columns(2)
+            with corr_col1:
+                st.write( "**Overall correlation**" )
+                add_spacelines(2)
+                st.write("Cramer's V correlation: ", round(cv, 3), "; p value: ", round(pval, 3))
+                #add_spacelines(1)
+                obs = np.array( confusion_matrix )
+                res = ss.chi2_contingency(obs)
+                ex = res.expected_freq
+                dof = res.dof
+                cv2 = res.statistic
+                pval2 =  res.pvalue
+
+                #res2 = stats.chisquare(obs.ravel(), f_exp=ex.ravel(), ddof=obs.size - 1 - dof)
+                #st.write(obs, res.statistic, res.pvalue, res.dof, ex, res2.statistic, res2.pvalue)
+                st.write("Chi2 correlation: ", round(cv2, 3), "; p value: ", round(pval2, 3))
+
+                st.write( "Confusion matrix: " )
+                st.write(confusion_matrix)
+                #add_spacelines(2)
+            with corr_col2:
+                st.write( "**Detailed correlation**" )
+                add_spacelines(2)
+                st.write("Matthews correlation coefficient (the *phi* coefficient)")
+                add_spacelines(2)
+                st.write(matrix_corr)
 
 
         with case_tab:
@@ -662,7 +788,6 @@ def distribution_plot_compare(data_list):
                 file_name='Cases.tsv',
                 mime='text/csv'
             )
-
 
 
 def Target_compare_freq(data_list):
