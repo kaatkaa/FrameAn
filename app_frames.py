@@ -428,7 +428,7 @@ def distribution_plot_compare(data_list):
                                 colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
                                      ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
 
-                    plt.tight_layout(pad=2)
+                    plt.tight_layout(pad=3)
                     st.pyplot(fig_pie)
                     add_spacelines(2)
 
