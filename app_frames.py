@@ -406,17 +406,14 @@ def distribution_plot_compare(data_list):
             #fig_pie, ax = plt.subplots(3, 2, figsize=(11, 10))
             #ax = ax.flatten()
             comps = dist_all.Feature.unique()
-            if len(comps) % 2 == 0:
-                fig_pie, ax = plt.subplots( int(len(comps)/2), 2, figsize=(7, 6))
-                sns.set(font_scale=1, style='whitegrid')
-                ax = ax.flatten()
+
             for com in comps:
                 st.write( f' **{com}** ' )
                 compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
 
                 if len(compsubs) % 2 == 0:
                     fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(7, 6))
-                    sns.set(font_scale=1, style='whitegrid')
+                    sns.set(font_scale=0.85, style='whitegrid')
                     ax = ax.flatten()
                     for n, comsub in enumerate(compsubs):
                         ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
