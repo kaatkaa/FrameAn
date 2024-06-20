@@ -13,7 +13,7 @@ colors = {
 'attack':'#B91305', 'support':'#1AE510', 'neutral agents':'#4F60B8',
 'villains':'#B91305', 'heroes':'#1AE510','neutral agent':'#4F60B8',
 'villain':'#B91305', 'hero':'#1AE510',
-'joy' : '#8DF903', 'anger' : '#FD7E00', 'sadness' : '#0798C3', 'fear' : '#000000', 'disgust' :'#840079', 'surprise' : '#E1CA01',
+'joy' : '#8DF903', 'anger' : '#FD7E00', 'sadness' : '#0798C3', 'fear' : '#FE5BA5', 'disgust' :'#840079', 'surprise' : '#E1CA01',
 }
 
 #####################
