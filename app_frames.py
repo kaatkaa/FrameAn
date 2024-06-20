@@ -337,7 +337,7 @@ def distribution_plot_compare(data_list):
 
     colsText = [c for c in df.columns if 'Text' in c]
     cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-    cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'CauseLength']
+    cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
     df[cols_frames_components+['AgentNumerosity', 'CauseLength']] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']].fillna("NA").astype('str')
     df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
 
@@ -359,7 +359,7 @@ def distribution_plot_compare(data_list):
         df_cause['proportion'] = df_cause['proportion'].round(3) * 100
         #st.write(df_cause)
 
-        for col in cols_frames_components[1:]+['AgentNumerosity', 'CauseLength']:
+        for col in cols_frames_components[1:]+['AgentNumerosity', 'Agent','CauseLength']:
 
             if contents_radio_categories_val_units == "number":
                 df_dist = df.groupby( [col, contents_radio_categories ], as_index=False ).size()
@@ -645,7 +645,7 @@ def distribution_plot_compare(data_list):
             dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'AgentNumerosity','Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -751,13 +751,13 @@ def distribution_plot_compare(data_list):
         with case_tab:
             colsText = [c for c in df.columns if 'Text' in c]
             cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-            cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'CauseLength']
+            cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity','Agent', 'CauseLength']
 
             df = data_list[-1]
             dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'AgentNumerosity','Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -1006,14 +1006,14 @@ def Target_compare_freq(data_list):
         add_spacelines(1)
         colsText = [c for c in df.columns if 'Text' in c]
         cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'CauseLength']
+        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
 
         #st.write(dd2)
         df = data_list[-1]
         dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'AgentNumerosity','Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -1258,14 +1258,14 @@ def Target_compare_scor(data_list):
         add_spacelines(1)
         colsText = [c for c in df.columns if 'Text' in c]
         cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'CauseLength']
+        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
 
         #st.write(dd2)
         df = data_list[-1]
         dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'AgentNumerosity', 'Agent','CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
                        'Causation begin', 'Causation end', 'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
@@ -1343,6 +1343,7 @@ with st.sidebar:
             cor1 = cor11.copy()
             cor1['ethos'] = cor1.ethos_label.map( {0:'neutral', 1:'support', 2:'attack'} )
             cor1['corpus'] = "Climate Change Twitter"
+            cor1['Agent'] = np.where( cor1['AgentNumerosity'].isin( ['single', 'group'] ), 'Present', 'No agent' )
             corpora_list.append(cor1)
 
 
