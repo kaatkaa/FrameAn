@@ -20,7 +20,7 @@ colors = {
 #####################
 # imports
 import streamlit as st
-from PIL import Image
+#from PIL import Image
 from collections import Counter
 import pandas as pd
 pd.set_option("max_colwidth", 400)
@@ -33,18 +33,14 @@ sns.set_theme(style="whitegrid")
 import time
 import re
 
-import spacy
-nlp = spacy.load('en_core_web_sm')
-
 pd.options.mode.chained_assignment = None
 import warnings
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+#warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 import plotly.express as px
 import plotly
 import plotly.graph_objects as go
-from PIL import Image, ImageDraw, ImageFont
 
 import wordcloud
 from wordcloud import WordCloud, STOPWORDS
@@ -297,29 +293,6 @@ def load_data(file_path, indx = True, indx_col = 0, sheet = False, sheet_name = 
   elif indx == False and file_path.endswith(".csv"):
     data = pd.read_csv(file_path)
   return data
-
-
-
-
-@st.cache_data
-def lemmatization(dataframe, text_column = 'sentence', name_column = False):
-  '''Parameters:
-  dataframe: dataframe with your data,
-
-  text_column: name of a column in your dataframe where text is located
-  '''
-  df = dataframe.copy()
-  lemmas = []
-  for doc in nlp.pipe(df[text_column].astype('str')):
-    lemmas.append(" ".join([token.lemma_ for token in doc if (not token.is_punct and not token.is_stop and not token.like_num and len(token) > 1) ]))
-
-  if name_column:
-      df[text_column] = lemmas
-  else:
-      df[text_column+"_lemmatized"] = lemmas
-  return df
-
-
 
 
 def distribution_plot_compare(data_list):
