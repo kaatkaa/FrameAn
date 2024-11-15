@@ -3,10 +3,8 @@
 
 # python -m streamlit run app.py
 
-
 # data
-cch_twi = r"NP-frames-up-ethos.xlsx"
-
+cch_twi = r"NP-frames-up-ethos-NER.xlsx"
 
 colors = {
 'negative':'#B91305', 'positive':'#1AE510', 'neutral':'#4F60B8', 'NA':'grey',
@@ -54,10 +52,6 @@ import scipy.stats as ss
 
 
 
-#####################
-#####################
-# functions
-
 
 def StatBarTest(em1, ne1, em2, ne2):
   table = np.array([[em1, ne1], [em2, ne2]])
@@ -96,6 +90,9 @@ def cramers_corrected_stat(df_col1, df_col2):
     kcorr = k - ((k-1)**2)/(n-1)
     return np.sqrt(phi2corr / min( (kcorr-1), (rcorr-1))), pval
 
+#####################
+#####################
+# functions
 
 def make_word_cloud(comment_words, width = 1100, height = 650, colour = "black", colormap = "brg", stops = True):
     stopwords = set(STOPWORDS)
@@ -295,6 +292,30 @@ def load_data(file_path, indx = True, indx_col = 0, sheet = False, sheet_name = 
   return data
 
 
+
+
+@st.cache_data
+def lemmatization(dataframe, text_column = 'sentence', name_column = False):
+  '''Parameters:
+  dataframe: dataframe with your data,
+
+  text_column: name of a column in your dataframe where text is located
+  '''
+  df = dataframe.copy()
+  lemmas = []
+  for doc in nlp.pipe(df[text_column].astype('str')):
+    lemmas.append(" ".join([token.lemma_ for token in doc if (not token.is_punct and not token.is_stop and not token.like_num and len(token) > 1) ]))
+
+  if name_column:
+      df[text_column] = lemmas
+  else:
+      df[text_column+"_lemmatized"] = lemmas
+  return df
+
+
+
+
+
 def distribution_plot_compare(data_list):
     c_contents1, c_contents2 = st.columns( 2 )
     with c_contents2:
@@ -310,9 +331,9 @@ def distribution_plot_compare(data_list):
 
     colsText = [c for c in df.columns if 'Text' in c]
     cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-    cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
-    df[cols_frames_components+['AgentNumerosity', 'CauseLength']] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']].fillna("NA").astype('str')
-    df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
+    cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity','Agent', 'CauseLength']
+    df[cols_frames_components+[ 'CauseLength', ]] = df[cols_frames_components+[ 'CauseLength', ]].fillna("NA").astype('str')
+    df[cols_frames_components+[ 'CauseLength', ]+colsText] = df[cols_frames_components+[ 'CauseLength', ]+colsText].astype('str')
 
 
     if 'sentiment' in contents_radio_categories or 'ethos' in contents_radio_categories or 'emotion' in contents_radio_categories:
@@ -332,7 +353,7 @@ def distribution_plot_compare(data_list):
         df_cause['proportion'] = df_cause['proportion'].round(3) * 100
         #st.write(df_cause)
 
-        for col in cols_frames_components[1:]+['AgentNumerosity', 'Agent','CauseLength']:
+        for col in cols_frames_components[1:]+['Agent', 'AgentNumerosity', 'CauseLength', ]:
 
             if contents_radio_categories_val_units == "number":
                 df_dist = df.groupby( [col, contents_radio_categories ], as_index=False ).size()
@@ -379,15 +400,13 @@ def distribution_plot_compare(data_list):
             #fig_pie, ax = plt.subplots(3, 2, figsize=(11, 10))
             #ax = ax.flatten()
             comps = dist_all.Feature.unique()
-
             for com in comps:
                 st.write( f' **{com}** ' )
                 compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
-                  
-                if len(compsubs) % 2 == 0 and len(compsubs) > 3:
-                    sns.set(font_scale=0.7, style='whitegrid')
-                  
-                    fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(9, 7))
+
+                if len(compsubs) % 2 == 0:
+                    fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(7, 6))
+                    sns.set(font_scale=1, style='whitegrid')
                     ax = ax.flatten()
                     for n, comsub in enumerate(compsubs):
                         ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
@@ -402,12 +421,27 @@ def distribution_plot_compare(data_list):
                     st.pyplot(fig_pie)
                     add_spacelines(2)
 
+                elif len(compsubs) % 2 != 0 and len(compsubs) > 4:
+                    fig_pie, ax = plt.subplots( int(np.ceil(len(compsubs)/2)), 2, figsize=(7, 6))
+                    sns.set(font_scale=0.8, style='whitegrid')
+                    ax = ax.flatten()
+                    for n, comsub in enumerate(compsubs):
+                        ax[n].set_title( f' {com} = {comsub} ', fontsize=13 )
+                        ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
+                                pctdistance=0.75, labeldistance = 1.1,
+                                labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                                startangle = 20,  autopct='%.0f%%', textprops={'color':'black',},
+                                colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
+                                     ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+                    plt.tight_layout(pad=2)
+                    ax[n+1].axis('off')
+                    st.pyplot(fig_pie)
+                    add_spacelines(2)
+
                 else:
-                    sns.set(font_scale=1, style='whitegrid')                  
-                    if len(compsubs) == 2:
-                      fig_pie, ax = plt.subplots( 1, len(compsubs), figsize=(9, 7))
-                    else:
-                      fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
+                    fig_pie, ax = plt.subplots(1, len(compsubs), figsize=(11, 10))
+                    sns.set(font_scale=1, style='whitegrid')
                     for n, comsub in enumerate(compsubs):
                         ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
                         ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
@@ -612,14 +646,14 @@ def distribution_plot_compare(data_list):
         with case_tab:
             df = data_list[-1]
             df = df.fillna("NA")
-            df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
+            df[cols_frames_components+['Agent', 'AgentNumerosity', 'CauseLength', ]+colsText] = df[cols_frames_components+['AgentNumerosity', 'Agent','CauseLength']+colsText].astype('str')
 
             #st.write(df)
             dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity','Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
-                       'Causation begin', 'Causation end', 'CauseText', 'EffectText',
+                       'AgentNumerosity', 'Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
             dff = df[dff_columns].copy()
@@ -686,7 +720,7 @@ def distribution_plot_compare(data_list):
             for n, comp in enumerate(comps):
                 ax[n].pie( dist_all[dist_all.Feature == comp]['value'].round(1).values, pctdistance=0.7, labeldistance=1.07,
                         labels = dist_all[dist_all.Feature == comp]['Component'].values, #hatch = ['x','',  '-'],
-                        startangle = -10,  autopct='%.0f%%', colors = ['#4F60B8'],
+                        startangle = -10,  autopct='%.0f%%', colors = ['#5166d5'],
                          textprops={'color':'black', 'size':9 } # hatch = ['/','']  textprops={'color':'black', 'size':5 }
                         )
                 ax[n].set_title(comp)
@@ -724,18 +758,18 @@ def distribution_plot_compare(data_list):
         with case_tab:
             colsText = [c for c in df.columns if 'Text' in c]
             cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-            cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity','Agent', 'CauseLength']
+            cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
 
             df = data_list[-1]
             dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity','Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
-                       'Causation begin', 'Causation end', 'CauseText', 'EffectText',
+                       'AgentNumerosity', 'Agent','CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
             df = df.fillna("NA")
-            df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
+            df[cols_frames_components+['AgentNumerosity', 'Agent','CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'Agent','CauseLength']+colsText].astype('str')
 
             dff = df[dff_columns].copy()
             dff = dff.fillna('NA')
@@ -764,29 +798,1084 @@ def distribution_plot_compare(data_list):
             )
 
 
-def Target_compare_freq(data_list):
+
+
+
+
+def distribution_plot_compare2(data, contents_radio_categories_val_units, contents_radio_categories, frames):
+    cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
+    df = data.copy()
+
+    if frames:
+        df = df[df.Component == 'Causation']
+    else:
+        df = df[df.Component != 'Causation']
+
+    df = df.iloc[:, 1:]
+    distributions_dict = {}
+    components_feature = ['CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity', 'Agent', 'AgentNumerosity', 'CauseLength', ]
+    #st.write(df)
+
+    if 'sentiment' in contents_radio_categories or 'ethos' in contents_radio_categories or 'emotion' in contents_radio_categories:
+        contents_radio_categories = contents_radio_categories.split("&")[-1].strip()
+
+        #df[ contents_radio_categories_multiselect ] = df[ contents_radio_categories_multiselect ].astype('str')
+        #add_spacelines(2)
+        #df_cause = df.groupby( contents_radio_categories_multiselect + [contents_radio_categories ], as_index=False ).size()
+        #notna = df.shape[0]
+        #df_cause['proportion'] = df_cause[ 'size' ] / notna
+        #df_cause['proportion'] = df_cause['proportion'].round(3) * 100
+
+        for col in cols_frames_components[1:]+['Agent', 'AgentNumerosity', 'CauseLength', ]:
+
+            if contents_radio_categories_val_units == "number":
+                df_dist = df.groupby( [col, contents_radio_categories ], as_index=False ).size()
+                df_dist['proportion'] = df_dist[ 'size' ].copy()
+                #df_dist = df[col].value_counts(normalize=False)
+                #df_dist = df_dist.reset_index()
+                #df_dist = df_dist.rename(columns = {'count':'proportion'})
+            else:
+                df_dist = df.groupby( [col ], )[ contents_radio_categories ].value_counts(normalize=True).round(3) * 100
+                df_dist = pd.DataFrame(df_dist)
+                df_dist.columns = ['proportion']
+                df_dist = df_dist.reset_index()
+                #st.write(df_dist)
+                #notna = df[ ~(df[col].isna()) ].shape[0]
+                #df_dist['proportion'] = df_dist[ 'size' ] / notna
+                #df_dist['proportion'] = df_dist['proportion'].round(3) * 100
+
+            df_dist['Feature'] = col
+            df_dist['Component'] = df_dist[col]
+            distributions_dict[ col ] = df_dist[['Feature', 'Component', 'proportion', contents_radio_categories]]
+
+
+        pie_tab, plot_tab, corr_tab, table_tab, case_tab = st.tabs( ['Pie-chart', 'Bar-chart', 'Correlation', 'Tables', 'Cases'] )
+
+        dist_all = pd.concat( distributions_dict.values(), axis=0, ignore_index=True )
+        dist_all = dist_all.melt(['Feature', 'Component', contents_radio_categories ], value_vars =  'proportion')
+        dist_all = dist_all.drop(columns = ['variable'])
+
+        if contents_radio_categories == 'emotion':
+            h1 = 10
+        else:
+            h1 = 8.5
+        if contents_radio_categories_val_units == "number":
+            x1 = dist_all['value'].max() + 11
+            x2 = 10
+        else:
+            x1 = 101
+            x2 = 20
+
+
+        with pie_tab:
+            sns.set(font_scale=1.2, style='whitegrid')
+            fig_pie, ax = plt.subplots( 1, 1, figsize=(6, 5))
+
+            if contents_radio_categories_val_units == "number":
+                df_dist = df[ contents_radio_categories ].value_counts(normalize=False)
+                df_dist = pd.DataFrame(df_dist).reset_index()
+                df_dist.columns = [contents_radio_categories,'value']
+            else:
+                df_dist = df[ contents_radio_categories ].value_counts(normalize=True).round(3) * 100
+                df_dist = pd.DataFrame(df_dist).reset_index()
+                df_dist.columns = [contents_radio_categories,'value']
+
+
+            ax.pie( df_dist['value'].round(1).values,
+                    pctdistance=0.75, labeldistance = 1.1, labels = df_dist[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                    startangle = 90,  autopct='%.0f%%', textprops={'color':'black',  },
+                    colors = list( colors[k] for k in df_dist[contents_radio_categories].values),
+                         ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+            plt.tight_layout(pad=1)
+            st.pyplot(fig_pie)
+
+
+            if frames:
+                sns.set(font_scale=1, style='whitegrid')
+                comps = dist_all.Feature.unique()
+
+                fig_pie, ax = plt.subplots( int(len(comps)), 1, figsize=(7, 6))
+                sns.set(font_scale=1, style='whitegrid')
+                ax = ax.flatten()
+
+                for com in comps:
+                    with st.expander( com ):
+                        #st.write( f' **{com}** ' )
+                        compsubs = dist_all[dist_all.Feature == com]['Component'].unique()
+
+                        if len(compsubs) % 2 == 0:
+                            fig_pie, ax = plt.subplots( int(len(compsubs)/2), 2, figsize=(7, 6))
+                            sns.set(font_scale=1, style='whitegrid')
+                            if len(compsubs) == 1:
+                                ax = [ax]
+                            else:
+                                ax = ax.flatten()
+
+                            for n, comsub in enumerate(compsubs):
+                                ax[n].set_title( f' {com} = {comsub} ', fontsize=16 )
+                                ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
+                                        pctdistance=0.75, labeldistance = 1.1,
+                                        labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                                        startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':14, },
+                                        colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
+                                             ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+                            plt.tight_layout(pad=2)
+                            st.pyplot(fig_pie)
+                            add_spacelines(2)
+
+                        else:
+                            #st.write(compsubs)
+                            if (dist_all[dist_all.Feature == 'CausationEffect'].Feature.nunique() == 1) & (dist_all[dist_all.Feature == 'CausationEffect'].Component.unique()[0] == 'NA'):
+                                sns.set(font_scale=1.5, style='whitegrid')
+                                fig_pie, ax = plt.subplots(1, 1, figsize=(6, 5))
+                                #ax = ax.flatten()
+                                ax.pie( df_dist['value'].round(1).values,
+                                        pctdistance=0.75, labeldistance = 1.1, labels = df_dist[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                                        startangle = 90,  autopct='%.0f%%', textprops={'color':'black',  },
+                                        colors = list( colors[k] for k in df_dist[contents_radio_categories].values),
+                                             ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+                                plt.tight_layout(pad=2)
+                                st.pyplot(fig_pie)
+                                add_spacelines(2)
+
+                            else:
+                                fig_pie, ax = plt.subplots(len(compsubs), 1, figsize=(11, 10))
+                                try:
+                                    ax = ax.flatten()
+                                    sns.set(font_scale=1, style='whitegrid')
+                                    ff = 16
+                                except:
+                                    ax = [ax]
+                                    sns.set(font_scale=1.5, style='whitegrid')
+                                    ff=25
+
+                                for n, comsub in enumerate(compsubs):
+                                    ax[n].set_title( f' {com} = {comsub} ', fontsize=ff )
+                                    ax[n].pie( dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')['value'].round(1).values,
+                                            pctdistance=0.75, labeldistance = 1.1,
+                                            labels = dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values, #hatch = ['x','',  '-'],
+                                            startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':ff, },
+                                            colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
+                                             ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+                                plt.tight_layout(pad=2)
+                                st.pyplot(fig_pie)
+                                add_spacelines(2)
+
+
+
+        with plot_tab:
+            sns.set(style = 'whitegrid', font_scale=2.5)
+
+            if frames:
+                plot1 = sns.catplot( data = dist_all, kind = 'bar', y = 'Component', x = 'value', col = 'Feature', col_wrap = 2,
+                        aspect = 1.15, height=h1, sharey=False, sharex=False, hue = contents_radio_categories, palette = colors)
+
+                plot1.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
+                        ylabel='', xlabel=contents_radio_categories_val_units,
+                        )
+                plt.tight_layout(pad=1.5)
+                sns.move_legend(plot1, loc='upper right', bbox_to_anchor = (0.8 - (3/ 30 ), 1.05), ncols = df[contents_radio_categories].nunique() )
+            else:
+                if contents_radio_categories_val_units == "number":
+                    df_dist = df[ contents_radio_categories ].value_counts(normalize=False)
+                    df_dist = pd.DataFrame(df_dist).reset_index()
+                    df_dist.columns = [contents_radio_categories,'value']
+                else:
+                    df_dist = df[ contents_radio_categories ].value_counts(normalize=True).round(3) * 100
+                    df_dist = pd.DataFrame(df_dist).reset_index()
+                    df_dist.columns = [contents_radio_categories,'value']
+
+                plot1 = sns.catplot( data = df_dist, kind = 'bar', y = contents_radio_categories, x = 'value',
+                        aspect = 1.15, height=h1, sharey=False, sharex=False, hue = contents_radio_categories, palette = colors)
+
+                plot1.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
+                        ylabel='', xlabel=contents_radio_categories_val_units,
+                        )
+                plt.tight_layout(pad=1.5)
+                sns.move_legend(plot1, loc='upper right', bbox_to_anchor = (0.8 - (3/ 30 ), 1.05), ncols = df[contents_radio_categories].nunique() )
+
+            add_spacelines()
+            st.write(" ##### Single-level analysis ")
+            plt.show()
+            st.pyplot( plot1 )
+            #st.write(dist_all)
+            add_spacelines(3)
+
+
+        with corr_tab:
+            if frames:
+                add_spacelines(1)
+                corr_multiselect = st.multiselect("Choose component for the correlation analysis", components_feature, components_feature[0])
+                if len(corr_multiselect) > 1:
+                    corr_multiselect_feat = " & ".join(corr_multiselect)
+                    df[corr_multiselect_feat] = df[corr_multiselect].agg(' - '.join, axis=1)
+                    corr_multiselect = corr_multiselect_feat
+                else:
+                    corr_multiselect = corr_multiselect[0]
+
+                confusion_matrix = pd.crosstab( df[corr_multiselect].values, df[contents_radio_categories].values)
+                add_spacelines(2)
+
+                f1 = []
+                f2 = []
+                mt_corrs = []
+
+                from sklearn.metrics import matthews_corrcoef
+                for c1 in df[corr_multiselect].unique():
+                    for c2 in df[contents_radio_categories].unique():
+                        df_cor2 = df.copy()
+                        df_cor2[corr_multiselect] = df_cor2[corr_multiselect].map( {c1:1} ).fillna(0)
+                        df_cor2[contents_radio_categories] = df_cor2[contents_radio_categories].map( {c2:1} ).fillna(0)
+                        mt_corr = matthews_corrcoef( df_cor2[corr_multiselect].values, df_cor2[contents_radio_categories].values )
+                        f1.append(c1)
+                        f2.append(c2)
+                        mt_corrs.append( round(mt_corr, 3) )
+
+                #st.write(matthews_corrcoef( df[corr_multiselect].values, df['ethos'].values))
+                matrix_corr = pd.DataFrame( {corr_multiselect:f1 , contents_radio_categories.capitalize():f2, 'correlation':mt_corrs} )
+                cv, pval = cramers_corrected_stat( df[corr_multiselect].values, df[contents_radio_categories].values )
+
+                st.write( "**Overall correlation**" )
+                st.write("Cramer's V correlation: ", round(cv, 3), "; p value: ", round(pval, 3))
+                #add_spacelines(1)
+                obs = np.array( confusion_matrix )
+                res = ss.chi2_contingency(obs)
+                ex = res.expected_freq
+                dof = res.dof
+                cv2 = res.statistic
+                pval2 =  res.pvalue
+
+                st.write("Chi2 correlation: ", round(cv2, 3), "; p value: ", round(pval2, 3))
+                st.write( "Confusion matrix: " )
+                st.write(confusion_matrix)
+
+                st.write( "**Detailed correlation**" )
+                add_spacelines(1)
+                st.write("Matthews correlation coefficient (the *phi* coefficient)")
+                st.write(matrix_corr)
+
+            else:
+                confusion_matrix = pd.crosstab( data['Component'].astype('str').values, data[contents_radio_categories].values)
+                add_spacelines(2)
+                corr_multiselect = 'Component'
+
+                f1 = []
+                f2 = []
+                mt_corrs = []
+
+                from sklearn.metrics import matthews_corrcoef
+                for c1 in data[corr_multiselect].unique():
+                    for c2 in data[contents_radio_categories].unique():
+                        df_cor2 = data.copy()
+                        df_cor2[corr_multiselect] = df_cor2[corr_multiselect].map( {c1:1} ).fillna(0)
+                        df_cor2[contents_radio_categories] = df_cor2[contents_radio_categories].map( {c2:1} ).fillna(0)
+                        mt_corr = matthews_corrcoef( df_cor2[corr_multiselect].values, df_cor2[contents_radio_categories].values )
+                        f1.append(c1)
+                        f2.append(c2)
+                        mt_corrs.append( round(mt_corr, 3) )
+                        #st.write(c1, c2, mt_corr)
+
+                matrix_corr = pd.DataFrame( {corr_multiselect:f1 , contents_radio_categories.capitalize():f2, 'correlation':mt_corrs} )
+                cv, pval = cramers_corrected_stat( data[corr_multiselect].values, data[contents_radio_categories].values )
+
+                add_spacelines(6)
+                st.write( "**Overall correlation**" )
+                st.write("Cramer's V correlation: ", round(cv, 3), "; p value: ", round(pval, 3))
+                #add_spacelines(1)
+                obs = np.array( confusion_matrix )
+                res = ss.chi2_contingency(obs)
+                ex = res.expected_freq
+                dof = res.dof
+                cv2 = res.statistic
+                pval2 =  res.pvalue
+
+                st.write("Chi2 correlation: ", round(cv2, 3), "; p value: ", round(pval2, 3))
+                st.write( "Confusion matrix: " )
+                st.write(confusion_matrix)
+
+                add_spacelines(2)
+                st.write( "**Detailed correlation**" )
+                add_spacelines(1)
+                st.write("Matthews correlation coefficient (the *phi* coefficient)")
+                st.write(matrix_corr)
+
+
+
+        with table_tab:
+            if frames:
+                components_feature = dist_all.Feature.unique()
+                for ff in components_feature:
+                    st.write( dist_all[dist_all.Feature == ff].sort_values(by = 'value', ascending=False).reset_index(drop=True) )
+            else:
+                st.write(df_dist.round())
+            add_spacelines(1)
+
+
+
+        with case_tab:
+            df = df.fillna("NA")
+            df[cols_frames_components+['Agent', 'AgentNumerosity', 'CauseLength', ]+colsText] = df[cols_frames_components+['AgentNumerosity', 'Agent','CauseLength']+colsText].astype('str')
+
+            #st.write(df)
+            dff_columns = [
+                        'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
+                       'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
+                       'AgentNumerosity', 'Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'CauseText', 'EffectText',
+                       'AgentText', 'CircumstancesText',
+                         ]
+            dff = df[dff_columns].copy()
+            select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2], key=df.Component.iloc[0])
+            cols_columns = st.columns(len(select_columns))
+            dict_cond = {}
+            for n, c in enumerate(cols_columns):
+                with c:
+                    cond_col = st.multiselect(f"Choose condition for *{select_columns[n]}*",
+                                           (dff[select_columns[n]].unique()), (dff[select_columns[n]].unique()[0]))
+                    dict_cond[select_columns[n]] = cond_col
+            dff_selected = dff.copy()
+            for i, k in enumerate(dict_cond.keys()):
+                dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
+            add_spacelines(2)
+            st.dataframe(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1).style.apply( colorred, axis=1 ))
+            st.write(f"No. of cases: {len(dff_selected)}.")
+
+
+
+
+
+def Target_compare_prof(data_list, col_name = 'AgentText'):
+        c_contents1, c_contents2 = st.columns( 2, gap = 'large' )
+
+        with c_contents2:
+            contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
+
+        contents_radio_unit = 'number'
+        df = data_list[-1]
+        ds = df['corpus'].iloc[0]
+        #df = df[df['Component'] == 'Agent' ]
+        #st.write(df)
+        df = df[ ~(df[col_name].isna()) ]
+        df = df[ ~(df['Component'].isna()) ]
+        df_freq = df.groupby(col_name, ).size()
+        dict_frq = pd.DataFrame(df_freq).to_dict()[0]
+
+        with c_contents1:
+            contents_radio_categories = st.multiselect(f"Choose the name of the {col_name.replace('Text', '').capitalize()} for analysis", list(df[col_name].unique()),
+                                        format_func=lambda x: str(x) + f" : freq. {dict_frq[x]}", default =list(df[col_name].unique())[0]  ) # horizontal=True,
+            chosen_agent = " & ".join(contents_radio_categories)
+            chosen_names = contents_radio_categories
+        df = df[ (df[col_name].isin( contents_radio_categories ) ) ]
+
+
+        colsText = [c for c in df.columns if 'Text' in c]
+        cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
+        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'CauseLength']
+        df[cols_frames_components+['AgentNumerosity', 'CauseLength']] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']].fillna("NA").astype('str')
+        df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
+
+        df1 = df[col_name].value_counts(normalize = True).round(3) * 100
+        df1 = df1.reset_index()
+        if contents_radio_categories_val_units == 'number':
+            df1 = df[col_name].value_counts(normalize = False )
+            df1 = df1.reset_index()
+            df1 = df1.rename( columns = {'count': 'proportion'} )
+
+        #st.write(df1)
+        if col_name == 'AgentText':
+            df1 = df1.rename(columns = {'AgentText':'Agent'})
+            df['Agent'] = np.where( (df.AgentText.str.lower().isin(df.Target.fillna('NONE').str.lower())) | (df.Target.fillna('NONE').str.lower().isin(df.AgentText.str.lower())), 1, 0)
+            #df = df[ df['Agent'] == 1]
+            df['Agent'] = df['AgentText']
+            col_name = col_name.replace('Text', '')
+
+        add_spacelines(1)
+        contents_radio_categories =  col_name
+        contents_radio_categories_multiselect = st.multiselect(f"Select frames components for **multi-level analysis** of profiles ", cols2, cols2[:2] )
+        df[ contents_radio_categories_multiselect ] = df[ contents_radio_categories_multiselect ].astype('str')
+        contents_radio_categories_multiselect_grouping = st.selectbox("Choose the grouping component", contents_radio_categories_multiselect, 1 )
+
+        #data_list[1]
+        df = df[df.Component == 'Causation']
+        df_cause = df.groupby( contents_radio_categories_multiselect, as_index=False )[contents_radio_categories_multiselect_grouping].value_counts()
+        notna = df.shape[0]
+        df_cause['proportion'] = df_cause[ 'count' ] / notna
+        df_cause['proportion'] = df_cause['proportion'].round(3) * 100
+
+        #st.write(df_cause)
+        distributions_dict = {}
+
+        for col in cols_frames_components[1:]+['AgentNumerosity', 'CauseLength',]:
+
+            if contents_radio_categories_val_units == "number":
+                df_dist = df[col].value_counts()
+                df_dist = pd.DataFrame(df_dist).reset_index()
+                df_dist.columns = [col, 'proportion']
+                #df_dist['proportion'] = df[col].value_counts(normalize=True).round(3).values
+                #df_dist['proportion'] = df_dist['proportion'] * 100
+                #df_dist = df[col].value_counts(normalize=False)
+                #df_dist = df_dist.reset_index()
+                #df_dist = df_dist.rename(columns = {'count':'proportion'})
+            else:
+                df_dist = df[col].value_counts(normalize=True).round(3) * 100
+                df_dist = pd.DataFrame(df_dist).reset_index()
+                #st.write(df_dist)
+                #notna = df[ ~(df[col].isna()) ].shape[0]
+                #df_dist['proportion'] = df_dist[ 'size' ] / notna
+                #df_dist['proportion'] = df_dist['proportion'].round(3) * 100
+
+            df_dist['Feature'] = col
+            df_dist['Component'] = df_dist[col]
+            df_dist = df_dist.iloc[:, 1:]
+            df_dist[contents_radio_categories] = chosen_agent
+            distributions_dict[ col ] = df_dist[['Feature', 'Component', 'proportion', contents_radio_categories]]
+
+        #add_spacelines(2)
+        #st.write(f'##### {col_name.capitalize()} = {chosen_agent} ')
+        add_spacelines(2)
+
+        pie_tab, plot_tab, table_tab, case_tab = st.tabs( ['Pie-chart', 'Bar-chart',  'Tables', 'Cases'] )
+
+        dist_all = pd.concat( distributions_dict.values(), axis=0, ignore_index=True )
+        dist_all = dist_all.melt(['Feature', 'Component', contents_radio_categories ], value_vars =  'proportion')
+        dist_all = dist_all.drop(columns = ['variable'])
+
+        if contents_radio_categories == 'emotion':
+            h1 = 10
+        else:
+            h1 = 8.5
+        if contents_radio_categories_val_units == "number":
+            x1 = dist_all['value'].max() + 11
+            x2 = 10
+        else:
+            x1 = 101
+            x2 = 20
+
+
+        with pie_tab:
+
+            sns.set(font_scale=1, style='whitegrid')
+            #st.write(f'##### {col_name.capitalize()} = {chosen_agent} ')
+            add_spacelines(1)
+            comps = dist_all.Feature.unique()
+            fig_pie, ax = plt.subplots( 3, 2, figsize=(12, 10))
+            ax = ax.flatten()
+            sns.set(font_scale=1, style='whitegrid')
+
+            for n, com in enumerate(comps):
+                #st.write( f' **{com}** ' )
+                #ax = ax.flatten()
+
+                ax[n].set_title( com, fontsize=13 )
+                ax[n].pie( dist_all[ (dist_all.Feature == com)  ].sort_values(by = 'value')['value'].round(1).values,
+                        pctdistance=0.75, labeldistance = 1.1,
+                        labels = dist_all[ (dist_all.Feature == com)].sort_values(by = 'value')['Component'].values, #hatch = ['x','',  '-'],
+                        startangle = 90,  autopct='%.0f%%', textprops={'color':'black', 'size':14, },
+                        #colors = list( colors[k] for k in dist_all[ (dist_all.Feature == com) & (dist_all.Component == comsub) ].sort_values(by = 'value')[contents_radio_categories].values )
+                             ) # textprops={'color':'black', 'size':14 } 'weight':'bold'
+
+            plt.tight_layout(h_pad=2, w_pad=0)
+            st.pyplot(fig_pie)
+            add_spacelines(2)
+
+
+
+        with plot_tab:
+            #st.write(dist_all)
+            sns.set(style = 'whitegrid', font_scale=1.6)
+
+            plot1 = sns.catplot( data = dist_all, kind = 'bar', y = 'Component', x = 'value', col = 'Feature', col_wrap = 2,
+                    aspect = 1.3, sharey=False, sharex=False, #hue = contents_radio_categories, palette = colors
+                    )
+
+            plot1.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
+                    ylabel='', xlabel=contents_radio_categories_val_units,
+                    )
+            plt.tight_layout(pad=1.7)
+            #sns.move_legend(plot1, loc='upper right', bbox_to_anchor = (0.8 - (len(contents_radio_categories_multiselect) / 30 ), 1.05), ncols = df[contents_radio_categories].nunique() )
+            add_spacelines()
+            st.write(" ##### Single-level analysis ")
+            plt.show()
+            st.pyplot( plot1 )
+            #st.write(dist_all)
+            add_spacelines(3)
+
+
+            # fig 2
+            st.write( f" ##### Multi-level analysis of frames" )
+            cols_columns = st.columns(len(contents_radio_categories_multiselect))
+            dict_cond = {}
+            for n, c in enumerate(cols_columns):
+                with c:
+                    df = df[ df[ contents_radio_categories_multiselect[n]] != 'nan' ]
+                    cond_col = st.multiselect(f"Select categories for *{contents_radio_categories_multiselect[n]}*",
+                                           (df[contents_radio_categories_multiselect[n]].unique()), (df[contents_radio_categories_multiselect[n]].unique()))
+                    dict_cond[contents_radio_categories_multiselect[n]] = cond_col
+
+            for i, k in enumerate(dict_cond.keys()):
+                df = df[ df[str(k)].isin(dict_cond[k]) ]
+
+            df_cause2 = df.groupby( contents_radio_categories_multiselect[:-1])[ contents_radio_categories_multiselect[-1] ].value_counts(normalize=True).round(3) * 100
+            #st.write(df_cause2)
+            sns.set(style = 'whitegrid', font_scale=2.1)
+            df_cause2 = df_cause2.reset_index()
+            #st.write(df_cause2)
+            df_cause2 = df_cause2.rename(columns = {'proportion':'proportion feature'})
+            colsc2 = list(df_cause2.columns)[:-1]
+            #st.write(df_cause)
+            df_cause = df_cause.merge(df_cause2, on = contents_radio_categories_multiselect)
+            #st.write(df_cause)
+            if not contents_radio_categories_multiselect_grouping == 'AgentNumerosity' or contents_radio_categories_multiselect_grouping == 'CauseLength':
+                df_cause = df_cause[df_cause[contents_radio_categories_multiselect_grouping] != 'NA']
+            df_cause['grouping'] = contents_radio_categories_multiselect_grouping
+            colswgrouping = list( set(contents_radio_categories_multiselect).difference([contents_radio_categories_multiselect_grouping]) )
+            df_cause['Feature'] = df_cause[ colswgrouping ].apply( lambda x: ' - '.join(x.values.astype('str')), axis=1)
+            #st.write(df_cause)
+            colswgrouping = " - ".join(colswgrouping)
+
+            if contents_radio_categories_val_units == "number":
+                df_cause['size'] = df_cause['count']
+                x1 = df_cause['size'].max() + 11
+                x2 = 10
+            else:
+                df_cause['size'] = df_cause['proportion feature']
+                x1 = 101
+                x2 = 20
+            plot = sns.catplot( data = df_cause, kind = 'bar', y = 'Feature', x = 'size',
+                    col = contents_radio_categories_multiselect_grouping, col_wrap = 2,
+                    aspect = 1.15, sharex=False, height=h1, #hue = contents_radio_categories, palette = colors
+                    )
+            plot.set( xlim = (0, x1), xticks = np.arange(0, x1, x2),
+                    ylabel = colswgrouping+ "\n", xlabel=contents_radio_categories_val_units,
+                    )
+            for axis in plot.axes.flat:
+                axis.tick_params(labelleft=True)
+            #sns.move_legend(plot, loc='upper right', bbox_to_anchor = (0.8 - (len(contents_radio_categories_multiselect) / 30 ), 1.2 - (len(contents_radio_categories_multiselect) / 200 ) ), ncols = df[contents_radio_categories].nunique() )
+            plt.tight_layout(w_pad=3)
+            add_spacelines(2)
+
+            plt.show()
+            st.pyplot( plot)
+            df_cause = df_cause.rename(columns = {'proportion':'proportion overall'} )
+
+
+
+        with table_tab:
+            st.write(" **Single-level analysis** ")
+            #st.write(dist_all)
+            components_feature = dist_all.Feature.unique()
+            for ff in components_feature:
+                st.write( dist_all[dist_all.Feature == ff].sort_values(by = 'value', ascending=False).reset_index(drop=True).set_index(col_name) )
+            add_spacelines(1)
+
+            st.write( f" **Multi-level analysis of frames ** " )
+            df_cause = df_cause.rename( columns = { 'size':'number' } )
+            #df_cause['Agent'] = chosen_agent
+            df_cause['proportion'] = df_cause['proportion feature']
+            df_cause = df_cause.drop(columns = ['proportion overall', 'proportion feature', 'number', 'Feature'])
+
+            df_cause = df_cause.drop_duplicates(subset = df_cause.columns[:-1]).reset_index(drop=True)
+            st.write(df_cause )
+
+
+        with case_tab:
+            #df = data_list[-1]
+            df = df.fillna("NA")
+            df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity','CauseLength']+colsText].astype('str')
+            #df = df.rename( columns = {'entity':'Entity'} )
+
+            #st.write(df)
+            dff_columns = [
+                        'AgentText',  'speaker', 'sentence', 'CausationText', 'CausationEffect',
+                       'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
+                       'AgentNumerosity',  'CauseLength', 'sentiment', 'emotion',
+                       'CauseText', 'EffectText', 'map',
+                        'CircumstancesText','discussion', 'turn', 'entity',
+                         ]
+            dff = df[dff_columns].copy()
+            select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[0])
+            cols_columns = st.columns(len(select_columns))
+            dict_cond = {}
+            for n, c in enumerate(cols_columns):
+                with c:
+                    cond_col = st.multiselect(f"Choose condition for *{select_columns[n]}*",
+                                           (dff[select_columns[n]].unique()), chosen_names )
+                    dict_cond[select_columns[n]] = cond_col
+            dff_selected = dff.copy()
+            for i, k in enumerate(dict_cond.keys()):
+                dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
+            add_spacelines(2)
+            st.dataframe(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
+            st.write(f"No. of cases: {len(dff_selected)}.")
+
+
+            csv_cc_desc2 = convert_to_csv(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
+            # download button 1 to download dataframe as csv
+            download1 = st.download_button(
+                label="Download data as TSV",
+                data=csv_cc_desc2,
+                file_name='Cases.tsv',
+                mime='text/csv'
+            )
+
+
+
+
+
+
+def Target_compare_freq(data_list, col_name = 'AgentText', col_name2 = 'speaker'):
     add_spacelines(1)
-    contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
-    contents_radio_unit = 'number'
+    nents = 5
 
     df = data_list[-1]
     ds = df['corpus'].iloc[0]
+    df = df[ ~(df[col_name].isna()) ]
     #df = df[df['Component'] == 'Agent' ]
-    df = df[ ~(df.AgentText.isna()) ]
-    df1 = df['AgentText'].value_counts(normalize = True).round(3) * 100
+
+    val_unit1, val_unit2 = st.columns(2)
+    with val_unit1:
+        contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
+    with val_unit2:
+        if col_name == 'speaker':
+            nents = -2
+            df = df[ ~(df[col_name].isna()) & ~(df[col_name2].isna()) ]
+            contents_col_name2 = st.selectbox( "Chose the category of entity connected with the speaker", ( 'agent', 'ethotic target', 'entity mentioned' ) )
+            if 'agent' in contents_col_name2:
+                col_name2 = 'AgentText'
+            elif 'ethotic' in contents_col_name2:
+                col_name2 = 'Target'
+            else:
+                col_name2 = 'entity'
+            df[col_name2] = df[col_name2].fillna('NA')
+
+        else:
+            st.write('')
+
+    contents_radio_unit = 'number'
+    #df = df[ ~(df['Component'].isna()) ]
+
+    df_freq = df.groupby(col_name, as_index=False).size()
+
+    if len(df_freq) > 5:
+        add_spacelines(1)
+        slider_freq = st.slider(f"Minimum frequency for **{col_name.replace('Text', '')}**", 1, 20, 3)
+        df_freq = df_freq[df_freq['size'] >= slider_freq]
+        df = df[df[col_name].isin(df_freq[col_name].values)]
+
+    speaker_names = st.multiselect( f'{col_name.replace("Text", "").capitalize()} in the analysis', df[col_name].unique(), df[col_name].unique()[:nents] )
+    df = df[ df[col_name].isin(speaker_names) ]
+
+    if col_name == 'AgentText':
+        df['Agent'] = df['AgentText']
+        col_name = 'Agent'
+
+    if col_name2 == 'AgentText':
+        df['Agent'] = df['AgentText']
+        col_name2 = 'Agent'
+    add_spacelines(1)
+
+    df1 = df[col_name].value_counts(normalize = True).round(3) * 100
     df1 = df1.reset_index()
 
     if contents_radio_categories_val_units == 'number':
-        df1 = df['AgentText'].value_counts(normalize = False )
+        df1 = df[col_name].value_counts(normalize = False )
         df1 = df1.reset_index()
         df1 = df1.rename( columns = {'count': 'proportion'} )
 
     #st.write(df1)
-    df1 = df1.rename(columns = {'AgentText':'Agent'})
-    df['Agent'] = np.where( (df.AgentText.str.lower().isin(df.Target.fillna('NONE').str.lower())) | (df.Target.fillna('NONE').str.lower().isin(df.AgentText.str.lower())), 1, 0)
-    #st.write(df)
-    df = df[ df['Agent'] == 1]
-    df['Target'] = df['AgentText']
+    df['Target'] = df[col_name]
+
+
+    df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
+
+    dd_hero = df2[df2.ethos == 'support']
+    dd_antihero = df2[df2.ethos == 'attack']
+    #st.write(dd_antihero)
+    dd_neu = df2[df2.ethos == 'neutral']
+
+    dd2 = pd.DataFrame({ 'Target': df['Target'].unique() })
+
+    dd2anti_scores = []
+    dd2hero_scores = []
+    up_data_dict_hist = {}
+
+    dd2['score'] = np.nan
+    dd2['number'] = np.nan
+    dd2['appeals'] = np.nan
+
+    #st.write( dd2.Target.unique())
+    for i in dd2.index:
+
+        t = dd2.loc[i, 'Target']
+
+        try:
+            ah = dd_antihero[dd_antihero.Target == t]['size'].iloc[0]
+        except:
+            ah = 0
+        try:
+            h = dd_hero[dd_hero.Target == t]['size'].iloc[0]
+
+            if h > ah :
+                dd2.loc[i, 'number'] = h
+                dd2.loc[i, 'appeals'] = (ah + h)
+                #dd2.loc[i, 'score'] = h
+
+            elif h < ah:
+                dd2.loc[i, 'number'] = ah
+                #dd2.loc[i, 'score'] = ah
+                dd2.loc[i, 'appeals'] = (ah + h)
+
+            else:
+                dd2.loc[i, 'number'] = 0
+                dd2.loc[i, 'appeals'] = (ah + h)
+
+        except:
+            try:
+                h = dd_neu[dd_neu.Target == t]['size'].iloc[0]
+
+                if ah == 0:
+                    dd2.loc[i, 'number'] = h
+                    dd2.loc[i, 'appeals'] = (ah + h)
+
+                elif h > ah :
+                    dd2.loc[i, 'number'] = h
+                    dd2.loc[i, 'appeals'] = (ah + h)
+                    #dd2.loc[i, 'score'] = h
+
+                elif h < ah:
+                    dd2.loc[i, 'number'] = ah
+                    #dd2.loc[i, 'score'] = ah
+                    dd2.loc[i, 'appeals'] = (ah + h)
+
+                else:
+                    dd2.loc[i, 'number'] = 0
+                    dd2.loc[i, 'appeals'] = (ah + h)
+
+            except:
+                h = 0
+                if h > ah :
+                    dd2.loc[i, 'number'] = h
+                    dd2.loc[i, 'appeals'] = (ah + h)
+                elif h < ah:
+                    dd2.loc[i, 'number'] = ah
+                    #dd2.loc[i, 'score'] = ah
+                    dd2.loc[i, 'appeals'] = (ah + h)
+                else:
+                    dd2.loc[i, 'number'] = 0
+                    dd2.loc[i, 'appeals'] = (ah + h)
+        try:
+            dd2.loc[i, 'score'] = ah / (ah + h)
+        except:
+            dd2.loc[i, 'score'] = 0
+
+    dd2['category'] = np.where(dd2.score > 0.5, 'villains', 'heroes')
+    dd2['category'] = np.where(dd2.score == 0, 'neutral agents', dd2['category'] )
+    dd2 = dd2.sort_values(by = ['category', 'Target'])
+    dd2['corpus'] = ds
+    df_dist_ethos_all = dd2.copy()
+
+    if contents_radio_categories_val_units == 'number':
+        df_dist_ethos_all = df_dist_ethos_all['category'].value_counts(normalize=False)
+        df_dist_ethos_all = pd.DataFrame(df_dist_ethos_all).reset_index()
+        df_dist_ethos_all = df_dist_ethos_all.rename( columns = {'count': 'proportion'} )
+    else:
+        df_dist_ethos_all = df_dist_ethos_all['category'].value_counts(normalize=True).round(3) * 100
+        df_dist_ethos_all = pd.DataFrame(df_dist_ethos_all).reset_index()
+
+
+    if contents_radio_categories_val_units == 'number':
+        x1 = df1['proportion'].max() + 3
+        x2 = 2
+    else:
+        x1 = 101
+        x2 = 10
+
+    sns.set(font_scale=1, style='whitegrid')
+    #dist_agents = sns.catplot(kind='bar', data=df1, y = col_name.replace('Text', ''), x = 'proportion', aspect = 1.3)
+    if contents_radio_categories_val_units == 'number':
+        dist_agents_xlabel = 'frequency'
+    else:
+        dist_agents_xlabel = 'frequency [%]'
+    #dist_agents.set( xlabel = dist_agents_xlabel ) # xlim = (0, x1), xticks = np.arange(0, x1, x2),
+
+
+    heroes_pie, heroes_tab1, heroes_sankey, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Sankey-chart', 'Tables',  'Cases'])
+
+
+    with heroes_tab1:
+        add_spacelines(1)
+        st.write( "##### Frequency " )
+
+        fig = px.bar(df1, x='proportion', y=col_name, template = 'seaborn',
+                    title= f'{col_name.capitalize()}: frequency', color=col_name )
+        fig.update_layout(
+                    #autosize=True,
+                    width=730,height=550,
+                    title = dict(font = dict(size=20)),
+                    font = dict(size = 18))
+        st.plotly_chart(fig)
+        #st.pyplot(dist_agents)
+        add_spacelines(3)
+
+        df0 = df.copy() #data_list[-1]
+        #df0 = df0[ ~(df0[col_name].isna()) & ~(df[col_name2].isna()) ]
+
+        #df0 = df0[df0[col_name].isin(df_freq[col_name].values)]
+        #df0 = df0[ df0[col_name].isin(speaker_names) ]
+
+        if contents_radio_categories_val_units == 'number':
+            df0 = df0.groupby( [col_name, col_name2], as_index=False ).size()
+            df0 = df0.rename( columns = {'size':'proportion'} )
+        else:
+            df0 = df0.groupby( [col_name] )[col_name2].value_counts(normalize=True).round(3) * 100
+            df0 = df0.reset_index()
+
+        #st.write(df0)
+        #sns.set(font_scale=1.5, style='whitegrid')
+        #dist_agents2 = sns.catplot(kind='bar', data=df0, y = col_name2, x = 'proportion',
+        #        aspect = 1.65, col = col_name, col_wrap = 2, sharex = False, sharey=False)
+
+        #dist_agents2.set( xlim = (0, x1), xticks = np.arange(0, x1, x2), xlabel = dist_agents_xlabel, ylabel = col_name2.replace('Text', '')  )
+        #plt.tight_layout(pad=1.5)
+        #st.pyplot(dist_agents2)
+        fig = px.bar(df0, x='proportion', y=col_name, template = 'seaborn', #barmode = 'group',
+                    color=col_name2, #facet_col = col_name, facet_col_wrap=2,
+                    title= f'{col_name.capitalize()} x {col_name2.capitalize()}: frequency',
+                     )
+        fig.update_layout(
+                    #autosize=True,
+                    width=730,height=1050,
+                    title = dict(font = dict(size=20)),
+                    font = dict(size = 18))
+        st.plotly_chart(fig)
+
+
+    with heroes_pie:
+        sns.set(style = 'whitegrid', font_scale=1)
+        df1['proportion'] = df1['proportion'].round(1)
+        fig = px.pie(df1, values='proportion', names=col_name,template = 'seaborn',
+                    title= f'{col_name.capitalize()}: frequency', color=col_name )
+        fig.update_layout(
+                    #autosize=True,
+                    width=730,height=550,
+                    title = dict(font = dict(size=20)),
+                    font = dict(size = 18))
+        st.plotly_chart(fig)
+        add_spacelines(1)
+
+        #st.write( "#### Detailed" )
+        cold1, cold2 = st.columns(2)
+        sns.set(style = 'whitegrid', font_scale=1)
+        with cold1:
+            fig_pie, ax = plt.subplots(int( np.ceil(df0[col_name].nunique()/2) ), 1, figsize=(9, 12))
+            if (df0[col_name].nunique()/2) > 1:
+                ax = ax.flatten()
+            else:
+                ax = [ax]
+            cnames = list( df0[col_name].unique() )
+            for nn, cn in enumerate(cnames[::2]):
+                ax[nn].pie( df0[df0[col_name] == cn]['proportion'].values,
+                            pctdistance=0.5, labeldistance=1.06,
+                            labels = df0[df0[col_name] == cn][col_name2].values, #hatch = ['x','',  '-'],
+                            startangle = 180,  autopct='%.0f%%', textprops={'color':'black',  }, colors = ['#5166d5'] # hatch = ['/','']
+                            )
+                ax[nn].set_title( f" {col_name.capitalize()} = {cn} " )
+            plt.tight_layout(h_pad=1.5)
+            #st.pyplot(fig_pie)
+
+        with cold2:
+            fig_pie, ax= plt.subplots(int( np.ceil(df0[col_name].nunique()/2) ), 1, figsize=(9, 12))
+            if (df0[col_name].nunique()/2) > 1:
+                ax = ax.flatten()
+            else:
+                ax = [ax]
+            #st.write(df0[df0[col_name] == cnames[0]])
+            for nn, cn in enumerate(cnames[1::2]):
+                ax[nn].pie( df0[df0[col_name] == cn]['proportion'].values,
+                            pctdistance=0.5, labeldistance=1.06,
+                            labels = df0[df0[col_name] == cn][col_name2].values, #hatch = ['x','',  '-'],
+                            startangle = 45,  autopct='%.0f%%', textprops={'color':'black',  }, colors = ['#5166d5'] # hatch = ['/','']
+                            )
+                ax[nn].set_title( f" {col_name.capitalize()} = {cn} " )
+            plt.tight_layout(h_pad=1.5)
+            #st.pyplot(fig_pie)
+        df0 = df0.rename( columns = {col_name : 'Target'} )
+
+
+    with heroes_sankey:
+        add_spacelines(1)
+        #st.write(df0)
+        col_name2 = col_name2.replace('Text', '').capitalize()
+        col_name = col_name.replace('Text', '').capitalize()
+        st.write( f"##### {col_name.capitalize()} - {col_name2.capitalize()} " )
+
+        df0.columns = [col_name, col_name2, 'proportion']
+        df0[col_name] = np.where( df0[ col_name] == '', np.nan, df0[ col_name] )
+        df0[ col_name] = df0[ col_name].ffill()
+        import plotly.graph_objects as go
+        import urllib, json
+
+        opacity = 0.9
+        ents = list( df0[ col_name].unique() )
+        nams = list( df0[ col_name2].unique() )
+        lexs = ents + nams
+
+        nodes = np.unique(df0[[col_name, col_name2]], axis=None)
+        #st.write(nodes)
+        nodes = pd.Series(index=nodes, data=range(len(nodes)))
+
+        nodes_val = nodes.loc[df0[col_name]].reset_index()
+        nodes_val.columns = [ col_name, 'id '+col_name ]
+        nodes_val = pd.concat( [nodes_val, nodes.loc[df0[col_name2]].reset_index() ], axis = 1 )
+        nodes_val.columns = [ col_name, 'id '+col_name, col_name2, 'id '+col_name2 ]
+        nodes_val = nodes_val[[  col_name,  col_name2]].merge( df0, on = [col_name,  col_name2] )
+        nodes_val = nodes_val.iloc[:, -1].tolist()
+        #st.write( nodes_val )
+
+        colors_lex =  [ px.colors.sequential.Plasma_r[i % len(px.colors.sequential.Plasma_r)] for i in nodes ]
+        #colors_lex = [ c if n in nodes.loc[ents].values else '#616060' for n, c in enumerate(colors_lex)   ]
+        colors_lex = [  '#616060'  for n, c in enumerate(colors_lex)   ]
+
+        fig = go.Figure(data=[go.Sankey(
+            node={
+            'pad' : 5,
+            #'thickness' : 35,
+            'line' : dict(color = "black", width = 0.5),
+
+            "label": nodes.index,
+            #"color": [     px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in nodes        ],
+             'color' : colors_lex,
+                },
+
+            link={
+                    "source": nodes.loc[df0[col_name]],
+                    "target": nodes.loc[df0[col_name2]],
+                    "value":  nodes_val, #df01.iloc[:, -1].tolist(),
+                    "color": [    px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]    for i in nodes.loc[df0[col_name]]]
+                },)])
+
+        fig.update_layout(
+                        #textfont_color = 'black',
+                        font_color="black",
+                        font_size=16,
+                        autosize=False,
+                        width=650,
+                        height=550,
+                        margin=dict(
+                            l=5,
+                            r=5,
+                            b=10,
+                            t=10,
+                            pad=2
+                        ),
+                    )
+        #fig.show()
+        st.plotly_chart(fig)
+
+
+
+    with heroes_tab2:
+        add_spacelines(1)
+        st.write( " Frequency " )
+
+        #st.write(df1.rename( columns = {'proportion': 'frequency'} ) )
+        add_spacelines(1)
+        st.write(df0.rename( columns = {'proportion': 'frequency'} ))
+
+
+    with heroes_tab_explore:
+        add_spacelines(1)
+        colsText = [c for c in df.columns if 'Text' in c]
+        cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
+        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
+
+        #st.write(dd2)
+        df = data_list[-1]
+        dff_columns = [
+                        'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
+                       'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
+                       'AgentNumerosity', 'Agent','CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'CauseText', 'EffectText',
+                       'AgentText', 'CircumstancesText', 'Entity'
+                         ]
+        df = df.fillna("NA")
+        df = df.rename( columns = {'entity':'Entity'} )
+        df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText] = df[cols_frames_components+['AgentNumerosity', 'CauseLength']+colsText].astype('str')
+
+        dff = df[dff_columns].copy()
+        dff = dff.fillna('NA')
+        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-1])
+        cols_columns = st.columns(len(select_columns))
+        dict_cond = {}
+        for n, c in enumerate(cols_columns):
+            with c:
+                cond_col = st.multiselect(f"Choose condition for *{select_columns[n]}*",
+                                       (dff[select_columns[n]].unique()), (dff[select_columns[n]].unique()[-1]))
+                dict_cond[select_columns[n]] = cond_col
+        dff_selected = dff.copy()
+        for i, k in enumerate(dict_cond.keys()):
+            dff_selected = dff_selected[ dff_selected[str(k)].isin(dict_cond[k]) ]
+        add_spacelines(2)
+        st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True).style.apply( colorred, axis=1 ))
+        st.write(f"No. of cases: {len(dff_selected)}.")
+
+        csv_cc_desc2 = convert_to_csv(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
+        # download button 1 to download dataframe as csv
+        download1 = st.download_button(
+            label="Download data as TSV",
+            data=csv_cc_desc2,
+            file_name='Cases.tsv',
+            mime='text/csv'
+        )
+
+
+
+
+def Target_compare_freq_noframes(data_list, contents_radio_categories_val_units, col_name = 'speaker', col_name2 = 'entity', frames = True):
+    add_spacelines(1) # Comparative Corpus
+    contents_radio_unit = 'number'
+    #df = data_list[-1]
+    df = data_list.copy()
+    df['speaker'] = df['turn'].apply(lambda x: x.split()[0] )
+
+    if frames:
+        df = df[df.Component == 'Causation']
+        col_name2 = 'AgentText'
+    else:
+        df = df[df.Component != 'Causation']
+
+    ds = df['corpus'].iloc[0]
+    #df = df[df['Component'] == 'Agent' ]
+    df = df[ ~(df[col_name].isna()) & ~(df[col_name2].isna()) ]
+    #df = df[ ~(df['Component'].isna()) ]
+
+    df_freq = df.groupby(col_name, as_index=False).size()
+    if len(df_freq) >= 3:
+        slider_freq = st.slider("**Minimum frequency**", 1, df_freq['size'].max()-1, 2)
+        df_freq = df_freq[df_freq['size'] >= slider_freq]
+        df = df[df[col_name].isin(df_freq[col_name].values)]
+
+
+    df1 = df[col_name].value_counts(normalize = True).round(3) * 100
+    df1 = df1.reset_index()
+
+
+    if contents_radio_categories_val_units == 'number':
+        df1 = df[col_name].value_counts(normalize = False )
+        df1 = df1.reset_index()
+        df1 = df1.rename( columns = {'count': 'proportion'} )
+
+    #st.write(df1)
+    if col_name == 'AgentText':
+        df1 = df1.rename(columns = {'AgentText':'Agent'})
+        df['Agent'] = np.where( (df.AgentText.str.lower().isin(df.Target.fillna('NONE').str.lower())) | (df.Target.fillna('NONE').str.lower().isin(df.AgentText.str.lower())), 1, 0)
+        #st.write(df)
+        df = df[ df['Agent'] == 1]
+    df['Target'] = df[col_name]
 
 
     df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
@@ -898,40 +1987,27 @@ def Target_compare_freq(data_list):
 
 
     if contents_radio_categories_val_units == 'number':
-        x1 = df_dist_ethos_all['proportion'].max() + 7
+        x1 = df1['proportion'].max() + 7
         x2 = 5
     else:
         x1 = 101
         x2 =10
 
     sns.set(font_scale=1, style='whitegrid')
-    dist_agents = sns.catplot(kind='bar', data=df1, y = 'Agent', x = 'proportion', aspect = 1.3)
+    dist_agents = sns.catplot(kind='bar', data=df1, y = col_name.replace('Text', ''), x = 'proportion', aspect = 1.3)
     if contents_radio_categories_val_units == 'number':
         dist_agents_xlabel = 'frequency'
     else:
         dist_agents_xlabel = 'frequency [%]'
     dist_agents.set( xlim = (0, x1), xticks = np.arange(0, x1, x2), xlabel = dist_agents_xlabel )
 
-    #st.write(df_dist_ethos_all)
-    sns.set(font_scale=1.2, style='whitegrid')
-    f_dist_ethos = sns.catplot(kind='bar', data = df_dist_ethos_all, height=5, aspect=1.2,
-                    x = 'category', y = 'proportion', hue = 'category', dodge=False, legend = False,
-                    palette = {'villains':'#EF0303', 'heroes':'#3DF94E', 'neutral agents':'blue' },
-                    )
-
-    f_dist_ethos.set(ylim=(0, x1), xlabel = '', ylabel = dist_agents_xlabel)
-    #plt.legend(loc='upper right', fontsize=13, bbox_to_anchor = (1.03, 0.9) )
-    for ax in f_dist_ethos.axes.ravel():
-        for p in ax.patches:
-            ax.annotate(format(p.get_height(), '.0f'), (p.get_x() + p.get_width() / 2., p.get_height()),
-                            ha = 'center', va = 'center', xytext = (0, 7), textcoords = 'offset points', fontsize=15)
-    add_spacelines(1)
-
     #st.write(df_dist_hist_all)
     sns.set(font_scale=1, style='whitegrid')
 
 
-    heroes_pie, heroes_tab1, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Tables',  'Cases'])
+
+    heroes_pie, heroes_tab1, heroes_sankey, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Sankey-chart', 'Tables',  'Cases'])
+
 
     with heroes_tab1:
         add_spacelines(1)
@@ -951,11 +2027,93 @@ def Target_compare_freq(data_list):
         #ax[5].axis("off")
 
         ax.pie( df1['proportion'].round(1).values, pctdistance=0.7, labeldistance=1.07,
-                    labels = df1['Agent'].values, #hatch = ['x','',  '-'],
-                    startangle = 30,  autopct='%.0f%%', textprops={'color':'black', 'size':13 }, colors = ['#4F60B8'] # hatch = ['/','']
+                    labels = df1[col_name.replace('Text', '')].values, #hatch = ['x','',  '-'],
+                    startangle = 30,  autopct='%.0f%%', textprops={'color':'black', 'size':13 }, colors = ['#5166d5'] # hatch = ['/','']
                     )
         ax.set_title( dist_agents_xlabel.capitalize() )
         st.pyplot(fig_pie)
+
+
+    with heroes_sankey:
+        add_spacelines(1)
+        df0 = data_list.copy() #data_list[-1]
+        df0['speaker'] = df0['turn'].apply(lambda x: x.split()[0] )
+        df0 = df0[ ~(df0[col_name].isna()) & ~(df0[col_name2].isna()) ] # df = df[ ~(df[col_name].isna()) & ~(df[col_name2].isna()) ]
+        df0 = df0[df0[col_name].isin(df_freq[col_name].values)]
+        df0['Target'] = df0[col_name]
+        #Sankey
+        if contents_radio_categories_val_units == 'number':
+            df0 = df0.groupby( ['Target', col_name2], as_index=False ).size()
+        else:
+            df0 = df0.groupby( ['Target'] )[col_name2].value_counts(normalize=True).round(2) * 100
+            df0 = df0.reset_index()
+        #st.write(df0)
+        col_name2 = col_name2.replace('Text', '').capitalize()
+        col_name = col_name.replace('Text', '').capitalize()
+        st.write( f"##### {col_name.capitalize()} - {col_name2.capitalize()} " )
+
+        df0.columns = [col_name, col_name2, 'proportion']
+        df0[col_name] = np.where( df0[ col_name] == '', np.nan, df0[ col_name] )
+        df0[ col_name] = df0[ col_name].ffill()
+
+        import plotly.graph_objects as go
+        import urllib, json
+
+        opacity = 0.9
+        ents = list( df0[ col_name].unique() )
+        nams = list( df0[ col_name2].unique() )
+        lexs = ents + nams
+
+        nodes = np.unique(df0[[col_name, col_name2]], axis=None)
+        #st.write(nodes)
+        nodes = pd.Series(index=nodes, data=range(len(nodes)))
+        #st.write(df0, nodes.loc[df0["Entity"]], nodes.loc[df0["Speaker"]])
+
+        nodes_val = nodes.loc[df0[col_name]].reset_index()
+        nodes_val.columns = [ col_name, 'id '+col_name ]
+        nodes_val = pd.concat( [nodes_val, nodes.loc[df0[col_name2]].reset_index() ], axis = 1 )
+        nodes_val.columns = [ col_name, 'id '+col_name, col_name2, 'id '+col_name2 ]
+        nodes_val = nodes_val[[  col_name,  col_name2]].merge( df0, on = [col_name,  col_name2] )
+        nodes_val = nodes_val.iloc[:, -1].tolist()
+        #st.write( nodes_val )
+        colors_lex =  [ px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in nodes ]
+        colors_lex = [ c if n in nodes.loc[ents].values else '#616060' for n, c in enumerate(colors_lex)   ]
+
+        fig = go.Figure(data=[go.Sankey(
+            node={
+            'pad' : 5,
+            #'thickness' : 35,
+            'line' : dict(color = "black", width = 0.5),
+            "label": nodes.index,
+            #"color": [     px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in nodes        ],
+             'color' : colors_lex,
+                },
+
+            link={
+                    "source": nodes.loc[df0[col_name]],
+                    "target": nodes.loc[df0[col_name2]],
+                    "value":  nodes_val, #df01.iloc[:, -1].tolist(),
+                    "color": [    px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)]    for i in nodes.loc[df0[col_name]]]
+                },)])
+
+        fig.update_layout(
+                        font_color="black",
+                        font_size=16,
+                        autosize=False,
+                        width=650,
+                        height=550,
+                        margin=dict(
+                            l=5,
+                            r=5,
+                            b=10,
+                            t=10,
+                            pad=2),
+                    )
+        #fig.show()
+        add_spacelines(2)
+        with st.expander('Chart'):
+            st.plotly_chart(fig)
+
 
 
 
@@ -963,16 +2121,8 @@ def Target_compare_freq(data_list):
         add_spacelines(1)
         st.write( " Frequency " )
         st.write(df1.rename( columns = {'proportion': 'frequency'} ) )
-        add_spacelines(2)
-        #st.write( " Distribution of categories of Agents' ethotic profiles" )
-        #st.write(df_dist_ethos_all)
-        #add_spacelines(2)
-        #st.write('Detailed summary')
-        dd2 = dd2.rename(columns = {'appeals':'frequency', 'Target':'Agent'})
-        dd2 = dd2.sort_values( by = ['score'] )
-        dd2 = dd2.reset_index(drop=True)
-        dd2.index += 1
-        #st.write(dd2)
+        add_spacelines(1)
+        st.write(df0)
 
 
     with heroes_tab_explore:
@@ -982,12 +2132,13 @@ def Target_compare_freq(data_list):
         cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
 
         #st.write(dd2)
-        df = data_list[-1]
+        df = data_list.copy()
+        df['speaker'] = df['turn'].apply(lambda x: x.split()[0] )
         dff_columns = [
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
-                       'AgentNumerosity','Agent', 'CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
-                       'Causation begin', 'Causation end', 'CauseText', 'EffectText',
+                       'AgentNumerosity', 'Agent','CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
+                       'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
         df = df.fillna("NA")
@@ -995,13 +2146,13 @@ def Target_compare_freq(data_list):
 
         dff = df[dff_columns].copy()
         dff = dff.fillna('NA')
-        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2])
+        select_columns = st.multiselect("Choose columns for specifying conditions", dff_columns, dff_columns[-2], key = str(frames))
         cols_columns = st.columns(len(select_columns))
         dict_cond = {}
         for n, c in enumerate(cols_columns):
             with c:
                 cond_col = st.multiselect(f"Choose condition for *{select_columns[n]}*",
-                                       (dff[select_columns[n]].unique()), (dff[select_columns[n]].unique()[-1]))
+                                       (dff[select_columns[n]].unique()), (dff[select_columns[n]].unique()[-1]), key = str(frames) + str(col_name))
                 dict_cond[select_columns[n]] = cond_col
         dff_selected = dff.copy()
         for i, k in enumerate(dict_cond.keys()):
@@ -1010,20 +2161,12 @@ def Target_compare_freq(data_list):
         st.dataframe(dff_selected.sort_values(by = select_columns).dropna(how='all', axis=1).reset_index(drop=True).style.apply( colorred, axis=1 ))
         st.write(f"No. of cases: {len(dff_selected)}.")
 
-        csv_cc_desc2 = convert_to_csv(dff_selected.sort_values(by = select_columns).reset_index(drop=True).dropna(how='all', axis=1))
-        # download button 1 to download dataframe as csv
-        download1 = st.download_button(
-            label="Download data as TSV",
-            data=csv_cc_desc2,
-            file_name='Cases.tsv',
-            mime='text/csv'
-        )
 
 
 
 def Target_compare_scor(data_list):
     add_spacelines(1)
-    #contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
+    contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
     contents_radio_unit = 'number'
 
     df = data_list[-1]
@@ -1031,8 +2174,9 @@ def Target_compare_scor(data_list):
     #df = df[df['Component'] == 'Agent' ]
     df = df[ ~(df.AgentText.isna()) ]
     #df['Target'] = df['AgentText']
+    df = df[df.ethos != 'neutral']
     df1 = df['AgentText'].value_counts(normalize = True).round(3) * 100
-    #st.write(df1)
+    #st.write(df)
     df1 = df1.reset_index()
 
     df1 = df1.rename(columns = {'AgentText':'Agent'})
@@ -1042,7 +2186,7 @@ def Target_compare_scor(data_list):
     df['Target'] = df['AgentText']
 
     df2 = df.groupby( ['Target', 'ethos'], as_index = False ).size()
-    #st.write(df2)
+    #st.write(df)
     dd_hero = df2[df2.ethos == 'support']
     dd_antihero = df2[df2.ethos == 'attack']
     #st.write(dd_antihero)
@@ -1171,34 +2315,100 @@ def Target_compare_scor(data_list):
     plt.axvline( x = 0.5, label = 'threshold', color = 'k', lw = 1.8, ls = '--', alpha = 0.8 )
 
 
-    heroes_pie, heroes_tab1, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Tables',  'Cases'])
 
-    with heroes_pie:
-        sns.set(font_scale=1.2, style='whitegrid')
-        if df_dist_hist_all1['category'].nunique() == 1:
-            fig_pie, ax = plt.subplots( df_dist_hist_all1['category'].nunique(), 1, figsize=(10, 8))
-            cats = df_dist_hist_all1['category'].unique()
 
-            for n, cat in enumerate(cats):
-                ax.pie( df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value')['value'].round(1).values,
-                        pctdistance=0.8, labeldistance = 1.05,
-                        labels = df_dist_hist_all1[ df_dist_hist_all1.category == cat ]['Target'].values, #hatch = ['x','',  '-'],
-                        startangle = 0,  autopct='%.0f%%', textprops={'color':'black', 'size':16 },
-                        colors = ['#EF0303'] ) # sns.mpl_palette("Reds",  df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value').value.nunique()  )
-                ax.set_title( cat.capitalize() )
+    heroes_pie, heroes_tab1, heroes_sankey, heroes_tab2, heroes_tab_explore = st.tabs(['Pie-chart', 'Bar-chart', 'Sankey-chart', 'Tables',  'Cases'])
 
+
+    with heroes_sankey:
+        add_spacelines(1)
+        st.write( "##### Target - Speaker " )
+
+        #Sankey
+        if contents_radio_categories_val_units == 'number':
+            df0 = df.groupby( ['Target', 'speaker'], as_index=False ).size()
+            #df1 = df1.rename( columns = {'count': 'proportion'} )
 
         else:
-            fig_pie, ax = plt.subplots( df_dist_hist_all1['category'].nunique(), 1, figsize=(10, 8))
-            cats = df_dist_hist_all1['category'].unique()
+            df0 = df.groupby( ['Target'] )['speaker'].value_counts(normalize=True).round(2) * 100
+            df0 = df0.reset_index()
+        #st.write(df0)
 
-            for n, cat in enumerate(cats):
-                ax[n].pie( df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value')['value'].round(1).values, pctdistance=0.85, labeldistance = 1.03,
-                        labels = df_dist_hist_all1[ df_dist_hist_all1.category == cat ]['Target'].values, #hatch = ['x','',  '-'],
-                        startangle = 0,  autopct='%.0f%%', textprops={'color':'black', 'size':16 }) # hatch = ['/','']
-                ax[n].set_title( cat.capitalize() )
+        df0.columns = ['Agent', 'speaker', 'proportion']
+        df0[ 'Agent'] = np.where( df0[ 'Agent'] == '', np.nan, df0[ 'Agent'] )
+        df0[ 'Agent'] = df0[ 'Agent'].ffill()
 
-        st.pyplot(fig_pie)
+        df00 = df.groupby( ['Target', 'speaker', 'ethos'], as_index=False ).size()
+        df00.columns = ['Agent', 'speaker', 'ethos', 'proportion']
+
+        import plotly.graph_objects as go
+        import urllib, json
+
+
+        opacity = 0.9
+        ents = list( df0[ 'Agent'].unique() )
+        nams = list( df0[ 'speaker'].unique() )
+        lexs = ents + nams
+
+        nodes = np.unique(df0[["Agent", "speaker"]], axis=None)
+        nodes = pd.Series(index=nodes, data=range(len(nodes)))
+
+        nodes_vil = np.unique(df00[df00.ethos == 'attack'][["Agent", "speaker"]], axis=None)
+        nodes_vil = pd.Series(index=nodes_vil, data=range(len(nodes)))
+        #st.write(df0, nodes.loc[df0["Entity"]], nodes.loc[df0["Speaker"]])
+
+        nodes_val = nodes.loc[df0["Agent"]].reset_index()
+        nodes_val.columns = [ "Agent", 'id Agent' ]
+        nodes_val = pd.concat( [nodes_val, nodes.loc[df0["speaker"]].reset_index() ], axis = 1 )
+        nodes_val.columns = [ "Agent", 'id Agent', "speaker", 'id speaker' ]
+        nodes_val = nodes_val[[  "Agent",  "speaker"]].merge( df0, on = ["Agent",  "speaker"] )
+        nodes_val = nodes_val.iloc[:, -1].tolist()
+
+        colors_lex =  [ px.colors.sequential.turbid[i % len(px.colors.sequential.turbid)] for i in nodes ] # https://plotly.com/python/builtin-colorscales/
+        #colors_lex = [ c if n in nodes.loc[ents].values else '#616060' for n, c in enumerate(colors_lex)   ]
+        colors_lex = [ c if n in nodes.values else '#616060' for n, c in enumerate(colors_lex)   ]
+
+        colors_link =  [ px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in nodes ]
+        colors_link = [ '#ec5e6d' if n in nodes_vil.values else '#5ead72' for n, c in enumerate(colors_link)   ]
+
+        fig = go.Figure(data=[go.Sankey(
+
+            node={
+            'pad' : 5,
+            #'thickness' : 35,
+            'line' : dict(color = "black", width = 0.5),
+
+            "label": nodes.index,
+            #"color": [     px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in nodes        ],
+             'color' : colors_lex,
+                },
+
+            link={
+                    "source": nodes.loc[df0["Agent"]],
+                    "target": nodes.loc[df0["speaker"]],
+                    "value":  nodes_val, #df01.iloc[:, -1].tolist(),
+                    "color": colors_link
+                },)])
+
+        fig.update_layout(
+                        #textfont_color = 'black',
+                        font_color="black",
+                        font_size=16,
+                        autosize=False,
+                        width=650,
+                        height=550,
+                        margin=dict(
+                            l=5,
+                            r=5,
+                            b=10,
+                            t=10,
+                            pad=2
+                        ),
+                        #font=dict(size = 16, color = 'black'),
+                    )
+        #fig.show()
+        st.plotly_chart(fig)
+
 
 
     with heroes_tab1:
@@ -1209,29 +2419,60 @@ def Target_compare_scor(data_list):
         st.pyplot(f_dist_ethoshist_barh)
 
 
+    with heroes_pie:
+        sns.set(font_scale=1.2, style='whitegrid')
+        dd2['frequency villains'] = np.where( dd2['category'] == 'villains', dd2['number'], 0  )
+        dd2['frequency villains'] = np.where( dd2['category'] == 'heroes', dd2['appeals'] - dd2['number'], dd2['frequency villains'] )
+
+        dd2['frequency heroes'] = np.where( dd2['category'] == 'heroes', dd2['number'], 0  )
+        dd2['frequency heroes'] = np.where( dd2['category'] == 'villains', dd2['appeals'] - dd2['number'], dd2['frequency heroes'] )
+        dd2 = dd2.drop( columns = ['number', 'corpus', 'appeals'] )
+
+        df_dist_hist_all1 = df_dist_hist_all1.merge( dd2[['Target', 'frequency heroes', 'frequency villains']], on = 'Target' )
+        #st.write(df_dist_hist_all1)
+        if df_dist_hist_all1['category'].nunique() == 1:
+            fig_pie, ax = plt.subplots( df_dist_hist_all1['category'].nunique(), 1, figsize=(10, 8))
+            cats = df_dist_hist_all1['category'].unique()
+
+            for n, cat in enumerate(cats):
+                ax.pie( df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value')['frequency '+ cat].round(1).values,
+                        pctdistance=0.8, labeldistance = 1.05,
+                        labels = df_dist_hist_all1[ df_dist_hist_all1.category == cat ]['Target'].values, #hatch = ['x','',  '-'],
+                        startangle = 10,  autopct='%.0f%%', textprops={'color':'black', 'size':16 },
+                        colors = ['#EF0303'] ) # sns.mpl_palette("Reds",  df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value').value.nunique()  )
+                ax.set_title( cat.capitalize() )
+
+        else:
+            fig_pie, ax = plt.subplots( df_dist_hist_all1['category'].nunique(), 1, figsize=(10, 8))
+            cats = df_dist_hist_all1['category'].unique()
+
+            for n, cat in enumerate(cats):
+                ax[n].pie( df_dist_hist_all1[ df_dist_hist_all1.category == cat ].sort_values(by = 'value')['value'].round(1).values, pctdistance=0.85, labeldistance = 1.03,
+                        labels = df_dist_hist_all1[ df_dist_hist_all1.category == cat ]['Target'].values, #hatch = ['x','',  '-'],
+                        startangle = 0,  autopct='%.0f%%', textprops={'color':'black', 'size':16 }) # hatch = ['/','']
+                ax[n].set_title( cat.capitalize() )
+        st.pyplot(fig_pie)
+
+
 
     with heroes_tab2:
         add_spacelines(1)
         st.write('Detailed summary')
-        dd2['frequency attacks'] = np.where( dd2['category'] == 'villains', dd2['number'], 0  )
-        dd2['frequency attacks'] = np.where( dd2['category'] == 'heroes', dd2['appeals'] - dd2['number'], dd2['frequency attacks'] )
 
-        dd2['frequency supports'] = np.where( dd2['category'] == 'heroes', dd2['number'], 0  )
-        dd2['frequency supports'] = np.where( dd2['category'] == 'villains', dd2['appeals'] - dd2['number'], dd2['frequency supports'] )        
-
-        dd2 = dd2.drop( columns = ['number', 'corpus'] )
-        dd2 = dd2.rename(columns = {'appeals':'frequency'})
+        #dd2 = dd2.rename(columns = {'appeals':'frequency'})
+        dd2 = dd2.rename(columns = {'category':'profile'})
         dd2 = dd2.sort_values( by = ['score'] )
         dd2 = dd2.reset_index(drop=True)
         dd2.index += 1
         st.write(dd2)
 
 
+
     with heroes_tab_explore:
         add_spacelines(1)
         colsText = [c for c in df.columns if 'Text' in c]
         cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
-        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity', 'Agent','CauseLength']
+        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity','Agent', 'CauseLength']
 
         #st.write(dd2)
         df = data_list[-1]
@@ -1239,7 +2480,7 @@ def Target_compare_scor(data_list):
                         'discussion', 'turn','map', 'sentence', 'CausationText', 'CausationEffect',
                        'CausationPolarity', 'CausationType', 'Component', 'InternalPolarity',
                        'AgentNumerosity', 'Agent','CauseLength', 'ethos',  'Target', 'sentiment', 'emotion', 'speaker',
-                       'Causation begin', 'Causation end', 'CauseText', 'EffectText',
+                      'CauseText', 'EffectText',
                        'AgentText', 'CircumstancesText',
                          ]
         df = df.fillna("NA")
@@ -1283,11 +2524,10 @@ summary_corpora_list = []
 with st.sidebar:
     st.title("Contents")
 
-    contents_radio_type = st.radio("", ('Home Page', 'Single Corpus Analysis',), ) # label_visibility='collapsed'   'Comparative Corpora Analysis'
+    contents_radio_type = st.radio("", ('Home Page', 'Single Corpus Analysis', 'Comparative Corpus Analysis'), ) # label_visibility='collapsed'   'Comparative Corpora Analysis'
 
     if contents_radio_type == 'Home Page':
         add_spacelines(2)
-
 
     else:
         add_spacelines(2)
@@ -1311,30 +2551,52 @@ with st.sidebar:
             corpora_list_components[ cor1['corpus'].iloc[0] ] = cor1
 
 
-            #cor11 = load_data(cch_twi, sheet = True, sheet_name = 'full', indx=False)
-            cor11 = load_data(cch_twi, sheet = True, sheet_name = 'ethos', indx=False)
+            #cor11 = load_data(cch_twi, sheet = True, sheet_name = 'ethos', indx=False)
+            cor11 = load_data(cch_twi, sheet = True, sheet_name = 'ner new', indx=False) # ner
             cor1 = cor11.copy()
-            cor1['ethos'] = cor1.ethos_label.map( {0:'neutral', 1:'support', 2:'attack'} )
+            cor1['ethos'] = cor1.ethos_label#.map( {0:'neutral', 1:'support', 2:'attack'} )
             cor1['corpus'] = "Climate Change Twitter"
-            cor1['Agent'] = np.where( cor1['AgentNumerosity'].isin( ['single', 'group'] ), 'Present', 'No agent' )
+            cor1['Agent'] = np.where( cor1['AgentNumerosity'].isin( ['single', 'group'] ), 'Agent', 'NA' )
+            cor1['entity'] = cor1['entity'].fillna('na').apply( lambda x: "_".join(x.split()) )
+            cor1['entity'] = np.where(cor1['entity'] == 'na', np.nan, cor1['entity'])
+            cor1['AgentNumerosity'] = np.where( cor1['AgentNumerosity'] != 'NA', cor1['AgentNumerosity'] , np.nan )
             corpora_list.append(cor1)
 
-
-
-    if contents_radio_type != 'Home Page':
+    if contents_radio_type == 'Comparative Corpus Analysis':
         st.write("### Analysis Units")
 
-        contents_radio_an_cat = st.radio("Unit picker", ('Text-based', 'Entity-based'), label_visibility='collapsed')
+        contents_radio_an_cat = st.radio("Unit picker", ('Text-based', 'Entity-based' ), label_visibility='collapsed')
+
         if contents_radio_an_cat == 'Entity-based':
-            #contents_radio_an_cat_unit = st.radio("Next choose", ['Target-Based Analysis'] )
-            contents_radio_an_cat_unit = st.radio("Next choose", [ 'Agent', 'Target' ])
+            contents_radio_an_cat_unit = st.radio("Next choose", ('Speaker',) ) # 'Agent', 'Target',
             #st.write(" ******************************* ")
             st.write(" ******************************* ")
             st.write("#### Statistical module")
-            if contents_radio_an_cat_unit == 'Agent':
-                contents_radio3 = st.radio("Statistic", ('Frequency', ), label_visibility='collapsed') # '(Anti)-heroes',
-            elif contents_radio_an_cat_unit == 'Target':
-                contents_radio3 = st.radio("Statistic", ('Ethotic Profiles', ), label_visibility='collapsed') # '(Anti)-heroes',
+            contents_radio3 = st.radio("Statistic", ('Frequency Distribution', ), label_visibility='collapsed') # '(Anti)-heroes',
+
+        else:
+            contents_radio_an_cat_unit = st.radio("Next choose", [ 'Sentence' ])
+            st.write(" ******************************* ")
+            st.write("#### Statistical module")
+            contents_radio3 = st.radio("Statistic", ('Distribution', ), label_visibility='collapsed') # , 'Odds ratio', 'Cases'
+
+
+
+    elif contents_radio_type == 'Single Corpus Analysis':
+        st.write("### Analysis Units")
+
+        contents_radio_an_cat = st.radio("Unit picker", ('Text-based', 'Entity-based'), label_visibility='collapsed')
+
+        if contents_radio_an_cat == 'Entity-based':
+            #contents_radio_an_cat_unit = st.radio("Next choose", ['Target-Based Analysis'] )
+            contents_radio_an_cat_unit = st.radio("Next choose", [ 'Agent', 'Named Entity', 'Target', 'Speaker' ])
+            #st.write(" ******************************* ")
+            st.write(" ******************************* ")
+            st.write("#### Statistical module")
+            if contents_radio_an_cat_unit == 'Target':
+                contents_radio3 = st.radio("Statistic", ('Ethotic Profile', ), label_visibility='collapsed') # '(Anti)-heroes',
+            else:
+                contents_radio3 = st.radio("Statistic", ('Frequency Distribution', 'Framing Profile'), label_visibility='collapsed') # '(Anti)-heroes',
 
         else:
             contents_radio_an_cat_unit = st.radio("Next choose", [ 'Sentence' ])
@@ -1357,12 +2619,73 @@ if contents_radio_type == 'Home Page':
 
 
 else:
-
     if contents_radio_type == 'Single Corpus Analysis' and contents_radio3 == 'Distribution':
         distribution_plot_compare( data_list = corpora_list )
 
-    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Agent' and contents_radio3 == 'Frequency':
+    elif contents_radio_type == 'Comparative Corpus Analysis' and contents_radio3 == 'Distribution':
+        c_contents1, c_contents2 = st.columns( 2 )
+        with c_contents2:
+            contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) ) # horizontal=True, , label_visibility = 'collapsed'
+
+        with c_contents1:
+            contents_radio_categories = st.selectbox("Choose layers for analysis", ("frames & ethos", "frames & sentiment", "frames & emotion" )) # horizontal=True,
+
+        #df = df[df.Component != 'Causation']
+        #df = df[df.Component == 'Causation']
+        add_spacelines(1)
+        df = corpora_list[-1]
+
+        colsText = [c for c in df.columns if 'Text' in c]
+        cols_frames_components = [ 'Component', 'CausationEffect', 'CausationPolarity', 'CausationType',  'InternalPolarity' ]
+        cols2 = ['CausationEffect', 'CausationPolarity', 'CausationType', 'InternalPolarity', 'AgentNumerosity','Agent', 'CauseLength']
+        df[cols_frames_components+[ 'CauseLength', ]] = df[cols_frames_components+['CauseLength', ]].fillna("NA").astype('str')
+        df[cols_frames_components+[ 'CauseLength', ]+colsText] = df[cols_frames_components+[ 'CauseLength', ]+colsText].astype('str')
+        add_spacelines(1)
+        df_c, df_nc = st.columns( 2, gap = 'large' )
+        with df_c:
+            st.write( 'Corpus **with** causality frames' )
+            distribution_plot_compare2(df, contents_radio_categories_val_units,
+                            contents_radio_categories, frames = True)
+        with df_nc:
+            st.write( 'Corpus **without** causality frames' )
+
+            distribution_plot_compare2(df, contents_radio_categories_val_units,
+                            contents_radio_categories, frames = False)
+
+
+    elif contents_radio_type == 'Comparative Corpus Analysis' and contents_radio_an_cat_unit == 'Speaker' and contents_radio3 == 'Frequency Distribution':
+        contents_radio_categories_val_units = st.radio("Choose the unit of statistic to display", ("percentage", "number" ) )
+        df_framespeaker, df_noframespeaker = st.columns( 2, gap = 'large' )
+        with df_framespeaker:
+            st.write( 'Corpus **with** causality frames' )
+            Target_compare_freq_noframes(data_list = corpora_list[-1], contents_radio_categories_val_units=contents_radio_categories_val_units,
+                    col_name = 'speaker', col_name2 = 'entity', frames = True )
+        with df_noframespeaker:
+            st.write( 'Corpus **without** causality frames' )
+            Target_compare_freq_noframes(data_list = corpora_list[-1], contents_radio_categories_val_units=contents_radio_categories_val_units,
+                    col_name = 'speaker', col_name2 = 'entity', frames = False )
+
+
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Agent' and contents_radio3 == 'Frequency Distribution':
         Target_compare_freq( data_list = corpora_list )
 
-    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Target' and contents_radio3 == 'Ethotic Profiles':
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Agent' and contents_radio3 == 'Framing Profile':
+        Target_compare_prof( data_list = corpora_list )
+
+
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Named Entity' and contents_radio3 == 'Frequency Distribution':
+        Target_compare_freq( data_list = corpora_list, col_name = 'entity' )
+
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Named Entity' and contents_radio3 == 'Framing Profile':
+        Target_compare_prof( data_list = corpora_list, col_name = 'entity' )
+
+
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Speaker' and contents_radio3 == 'Frequency Distribution':
+        Target_compare_freq( data_list = corpora_list, col_name = 'speaker', col_name2 = 'entity' ) # Target_compare_freq(data_list, col_name = 'AgentText', col_name2 = 'speaker')
+
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Speaker' and contents_radio3 == 'Framing Profile':
+        Target_compare_prof( data_list = corpora_list, col_name = 'speaker' )
+
+
+    elif contents_radio_type == 'Single Corpus Analysis' and contents_radio_an_cat_unit == 'Target' and contents_radio3 == 'Ethotic Profile':
         Target_compare_scor( data_list = corpora_list )
